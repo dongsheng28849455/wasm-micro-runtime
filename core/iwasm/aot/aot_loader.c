@@ -24,6 +24,8 @@
 #define XMM_PLT_PREFIX "__xmm@"
 #define REAL_PLT_PREFIX "__real@"
 
+extern uint8* literal_vrtl;
+
 static void
 set_error_buf(char *error_buf, uint32 error_buf_size, const char *string)
 {
@@ -1521,6 +1523,10 @@ load_text_section(const uint8 *buf, const uint8 *buf_end, AOTModule *module,
     }
 #endif
 
+#if defined(CONFIG_INTERPRETERS_WAMR_RELO_XIP)
+    module->code_vrtl = (void *)(module->literal_vrtl + module->literal_size);
+#endif
+
     if ((module->code_size > 0) && !module->is_indirect_mode) {
         plt_base = (uint8 *)buf_end - get_plt_table_size();
         init_plt_table(plt_base);
@@ -1580,7 +1586,11 @@ load_function_section(const uint8 *buf, const uint8 *buf_end, AOTModule *module,
                           "invalid function code offset");
             return false;
         }
+#if defined(CONFIG_INTERPRETERS_WAMR_RELO_XIP)
+        module->func_ptrs[i] = (uint8*)module->code_vrtl + text_offset;
+#else
         module->func_ptrs[i] = (uint8 *)module->code + text_offset;
+#endif
 #if defined(BUILD_TARGET_THUMB) || defined(BUILD_TARGET_THUMB_VFP)
         /* bits[0] of thumb function address must be 1 */
         module->func_ptrs[i] = (void *)((uintptr_t)module->func_ptrs[i] | 1);
@@ -2573,7 +2583,9 @@ create_module(char *error_buf, uint32 error_buf_size)
     }
 
     module->module_type = Wasm_Module_AoT;
-
+#if defined(CONFIG_INTERPRETERS_WAMR_RELO_XIP)
+    module->code_vrtl   = NULL;
+#endif
     return module;
 }
 
@@ -2602,10 +2614,12 @@ destroy_sections(AOTSection *section_list, bool destroy_aot_text)
     AOTSection *section = section_list, *next;
     while (section) {
         next = section->next;
+#if !defined(CONFIG_INTERPRETERS_WAMR_RELO_XIP)
         if (destroy_aot_text && section->section_type == AOT_SECTION_TYPE_TEXT
             && section->section_body)
             os_munmap((uint8 *)section->section_body,
                       section->section_body_size);
+#endif
         wasm_runtime_free(section);
         section = next;
     }
@@ -2706,6 +2720,7 @@ create_sections(AOTModule *module, const uint8 *buf, uint32 size,
                     total_size =
                         (uint64)section_size + aot_get_plt_table_size();
                     total_size = (total_size + 3) & ~((uint64)3);
+#if !defined(CONFIG_INTERPRETERS_WAMR_RELO_XIP)
                     if (total_size >= UINT32_MAX
                         || !(aot_text = os_mmap(NULL, (uint32)total_size,
                                                 map_prot, map_flags))) {
@@ -2714,6 +2729,7 @@ create_sections(AOTModule *module, const uint8 *buf, uint32 size,
                                       "mmap memory failed");
                         goto fail;
                     }
+#endif
 #if defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64)
 #if !defined(BH_PLATFORM_LINUX_SGX) && !defined(BH_PLATFORM_WINDOWS) \
     && !defined(BH_PLATFORM_DARWIN)
@@ -2722,8 +2738,16 @@ create_sections(AOTModule *module, const uint8 *buf, uint32 size,
                     bh_assert((uintptr_t)aot_text < INT32_MAX);
 #endif
 #endif
+#if defined(CONFIG_INTERPRETERS_WAMR_RELO_XIP)
+                    /*
+                     * For flash instruction, we resue the secton body as code segment, which
+                     * will be relocated and written into flash
+                     */
+                    aot_text = section->section_body;
+#else
                     bh_memcpy_s(aot_text, (uint32)total_size,
                                 section->section_body, (uint32)section_size);
+#endif
                     section->section_body = aot_text;
                     destroy_aot_text = true;
 
@@ -2732,6 +2756,14 @@ create_sections(AOTModule *module, const uint8 *buf, uint32 size,
                                (uint32)total_size - section_size);
                         section->section_body_size = (uint32)total_size;
                     }
+                }
+                else if ((section_size > 0) && (module->is_indirect_mode))
+                {
+#if defined(CONFIG_INTERPRETERS_WAMR_RELO_XIP)
+                    // .text = .literal + .code, and literal_size = 0;
+                    module->literal_vrtl += (p - buf + sizeof(uint32));  // locate in .code now
+                    printf(".text vaddr : [%p]\n", module->literal_vrtl);
+#endif
                 }
             }
 
@@ -2772,6 +2804,10 @@ load(const uint8 *buf, uint32 size, AOTModule *module, char *error_buf,
     uint32 magic_number, version;
     AOTSection *section_list = NULL;
     bool ret;
+
+#if defined(CONFIG_INTERPRETERS_WAMR_RELO_XIP)
+    module->literal_vrtl = literal_vrtl;
+#endif
 
     read_uint32(p, p_end, magic_number);
     if (magic_number != AOT_MAGIC_NUMBER) {
@@ -3259,10 +3295,12 @@ aot_unload(AOTModule *module)
 
     if (module->code && !module->is_indirect_mode) {
         /* The layout is: literal size + literal + code (with plt table) */
+#if !defined(CONFIG_INTERPRETERS_WAMR_RELO_XIP)
         uint8 *mmap_addr = module->literal - sizeof(uint32);
         uint32 total_size =
             sizeof(uint32) + module->literal_size + module->code_size;
         os_munmap(mmap_addr, total_size);
+#endif
     }
 
 #if defined(BH_PLATFORM_WINDOWS)
