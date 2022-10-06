@@ -288,6 +288,7 @@ CFLAGS += -I$(IWASM_ROOT)/interpreter
 endif
 
 CSRCS += nuttx_platform.c \
+         esp32_vmmap.c \
          posix_thread.c \
          posix_time.c \
          mem_alloc.c \
