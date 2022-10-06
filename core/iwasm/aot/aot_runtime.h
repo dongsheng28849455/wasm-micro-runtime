@@ -197,6 +197,14 @@ typedef struct AOTModule {
     uint8 *literal;
     uint32 literal_size;
 
+#if defined(CONFIG_INTERPRETERS_WAMR_RELO_XIP)
+    /* virtual code address, addr in virtual memory space, map to flash finnaly
+     * code_vrtl is NULL, meaning no virtul memory used, then *code as usual.
+     */
+    void *code_vrtl;
+    uint8 *literal_vrtl;
+#endif
+
 #if defined(BH_PLATFORM_WINDOWS)
     /* extra plt data area for __ymm, __xmm and __real constants
        in Windows platform, NULL for JIT mode */
