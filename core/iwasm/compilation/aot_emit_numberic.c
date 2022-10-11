@@ -554,7 +554,10 @@ compile_int_div(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                 PUSH_INT(res);
                 return true;
             case INT_DIV_U:
-                LLVM_BUILD_OP(UDiv, left, right, res, "div_u", false);
+                //LLVM_BUILD_OP(UDiv, left, right, res, "div_u", false);
+                res = aot_call_llvm_intrinsic(
+                                comp_ctx, func_ctx, "i32.div_u", param_types[0],
+                                param_types, 2, left, right);
                 PUSH_INT(res);
                 return true;
             case INT_REM_S:
