@@ -123,15 +123,115 @@ GET_U64_FROM_ADDR(uint32 *addr)
     return u.val;
 }
 
+#if defined(BUILD_TARGET_X86_64)
+static inline uint8 *
+COPY_BYTES_FROM_ADDR(uint8 *dest, size_t dlen, uint8 *p, size_t plen)
+{
+    bh_assert(p);
+    bh_assert(dlen >= plen);
+
+    uint8 *pa = align_ptr(p, sizeof(uint32));
+    uint8 *pb = align_ptr((p + plen), sizeof(uint32)) - sizeof(uint32);
+
+    uint8 *p_pre_read = pa;
+    uint8 *p_suf_read = pa;
+    uint8 *p_read = pa;
+
+    if (pa > p) {
+        p_pre_read = pa - sizeof(uint32);
+    }
+    if (pa < pb) {
+        p_suf_read = pb;
+    }
+
+    uint32 pre_read_valid_offset = 0;
+    uint32 pre_read_valid_size = 0;
+    if (p_pre_read != p_read) {
+        pre_read_valid_offset = p - p_pre_read;
+        if (p + plen > p_read) {
+            pre_read_valid_size = p_read - p;
+        }
+        else {
+            pre_read_valid_size = plen;
+        }
+    }
+
+    uint32 read_size = 0;
+    uint32 suf_read_valid_offset = 0;
+    uint32 suf_read_valid_size = 0;
+    if (p_suf_read != p_read) {
+        read_size = p_suf_read - p_read;
+        suf_read_valid_size = p + plen - p_suf_read;
+    }
+    else {
+        if (p + plen > pa) {
+            read_size = p + plen - pa;
+        }
+    }
+
+    bh_assert((pre_read_valid_size + read_size + suf_read_valid_size) == plen);
+
+    // copy pre segment
+    uint8 buff[4] = { 0 };
+    bh_memcpy_s(buff, sizeof(uint32), p_pre_read, sizeof(uint32));
+    bh_memcpy_s(dest, pre_read_valid_size, buff + pre_read_valid_offset,
+                pre_read_valid_size);
+
+    // copy segment
+    memset(buff, 0, 4);
+    if (read_size < 4) {
+        bh_memcpy_s(buff, sizeof(uint32), p_read, sizeof(uint32));
+        bh_memcpy_s(dest + pre_read_valid_size, read_size, buff, read_size);
+    }
+    else {
+        bh_memcpy_s(dest + pre_read_valid_size, read_size, pa, read_size);
+    }
+
+    // copy suffix segment
+    memset(buff, 0, 4);
+    bh_memcpy_s(buff, sizeof(uint32), p_suf_read, sizeof(uint32));
+    bh_memcpy_s(dest + pre_read_valid_size + read_size, suf_read_valid_size,
+                buff, suf_read_valid_size);
+
+    return dest;
+}
+
+static inline uint8
+GET_U8_FROM_ADDR(uint8* p)
+{
+    bh_assert(p);
+    uint8 res = 0;
+    COPY_BYTES_FROM_ADDR(&res, sizeof(uint8), p, sizeof(uint8));
+    return res;
+}
+
+static inline uint16
+GET_U16_FROM_ADDR(uint8 *p)
+{
+    bh_assert(p);
+    uint16 res;
+    COPY_BYTES_FROM_ADDR((uint8 *)&res, sizeof(uint16), p, sizeof(uint16));
+    return res;
+}
+
+#else
+
+#endif
+
 #define TEMPLATE_READ(p, p_end, res, type)              \
     do {                                                \
-        if (sizeof(type) != sizeof(uint64))             \
+        if (sizeof(type) != sizeof(uint64)) {           \
             p = (uint8 *)align_ptr(p, sizeof(type));    \
+        }                                               \
         else                                            \
             /* align 4 bytes if type is uint64 */       \
             p = (uint8 *)align_ptr(p, sizeof(uint32));  \
         CHECK_BUF(p, p_end, sizeof(type));              \
-        if (sizeof(type) != sizeof(uint64))             \
+        if (sizeof(type) == sizeof(uint8))              \
+            res = GET_U8_FROM_ADDR(p);                  \
+        else if (sizeof(type) == sizeof(uint16))        \
+            res = GET_U16_FROM_ADDR(p);                 \
+        else if (sizeof(type) == sizeof(uint32))        \
             res = *(type *)p;                           \
         else                                            \
             res = (type)GET_U64_FROM_ADDR((uint32 *)p); \
@@ -148,13 +248,13 @@ GET_U64_FROM_ADDR(uint32 *addr)
 #define read_byte_array(p, p_end, addr, len) \
     do {                                     \
         CHECK_BUF(p, p_end, len);            \
-        bh_memcpy_s(addr, len, p, len);      \
+        COPY_BYTES_FROM_ADDR(addr, len, p, len);      \
         p += len;                            \
     } while (0)
 
 #define read_string(p, p_end, str)                                \
     do {                                                          \
-        if (!(str = load_string((uint8 **)&p, p_end, module,      \
+        if (!(str = copy_string_with_word_align((uint8 **)&p, p_end, module,      \
                                 is_load_from_file_buf, error_buf, \
                                 error_buf_size)))                 \
             goto fail;                                            \
@@ -231,7 +331,8 @@ const_str_set_insert(const uint8 *str, int32 len, AOTModule *module,
         return NULL;
     }
 
-    bh_memcpy_s(c_str, (uint32)(len + 1), str, (uint32)len);
+    //bh_memcpy_s(c_str, (uint32)(len + 1), str, (uint32)len);
+    COPY_BYTES_FROM_ADDR(c_str, (uint32)(len + 1), str, (uint32)len);
     c_str[len] = '\0';
 
     if ((value = bh_hash_map_find(set, c_str))) {
@@ -275,6 +376,39 @@ load_string(uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
         str = (char *)(p - 2);
         bh_memmove_s(str, (uint32)(str_len + 1), p, (uint32)str_len);
         str[str_len] = '\0';
+    }
+    else {
+        /* Load from sections, the file buffer cannot be reffered to
+           after loading, we must create another string and insert it
+           into const string set */
+        if (!(str = const_str_set_insert((uint8 *)p, str_len, module, error_buf,
+                                         error_buf_size))) {
+            goto fail;
+        }
+    }
+    p += str_len;
+
+    *p_buf = p;
+    return str;
+fail:
+    return NULL;
+}
+
+static char *
+copy_string_with_word_align(uint8 **p_buf, const uint8 *buf_end,
+                            AOTModule *module, bool is_load_from_file_buf,
+                            char *error_buf, uint32 error_buf_size)
+{
+    uint8 *p = *p_buf;
+    const uint8 *p_end = buf_end;
+    char *str;
+    uint16 str_len;
+
+    read_uint16(p, p_end, str_len);
+    CHECK_BUF(p, p_end, str_len);
+
+    if (str_len == 0) {
+        str = "";
     }
     else {
         /* Load from sections, the file buffer cannot be reffered to
