@@ -217,10 +217,6 @@ GET_U16_FROM_ADDR(uint8 *p)
     return res;
 }
 
-#else
-
-#endif
-
 #define TEMPLATE_READ(p, p_end, res, type)              \
     do {                                                \
         if (sizeof(type) != sizeof(uint64)) {           \
@@ -243,11 +239,6 @@ GET_U16_FROM_ADDR(uint8 *p)
         p += sizeof(type);                              \
     } while (0)
 
-#define read_uint8(p, p_end, res) TEMPLATE_READ(p, p_end, res, uint8)
-#define read_uint16(p, p_end, res) TEMPLATE_READ(p, p_end, res, uint16)
-#define read_uint32(p, p_end, res) TEMPLATE_READ(p, p_end, res, uint32)
-#define read_uint64(p, p_end, res) TEMPLATE_READ(p, p_end, res, uint64)
-
 #define read_byte_array(p, p_end, addr, len) \
     do {                                     \
         CHECK_BUF(p, p_end, len);            \
@@ -262,6 +253,48 @@ GET_U16_FROM_ADDR(uint8 *p)
                                 error_buf_size)))                 \
             goto fail;                                            \
     } while (0)
+
+#else
+
+#define TEMPLATE_READ(p, p_end, res, type)              \
+    do {                                                \
+        if (sizeof(type) != sizeof(uint64)) {           \
+            p = (uint8 *)align_ptr(p, sizeof(type));    \
+        }                                               \
+        else                                            \
+            /* align 4 bytes if type is uint64 */       \
+            p = (uint8 *)align_ptr(p, sizeof(uint32));  \
+        CHECK_BUF(p, p_end, sizeof(type));              \
+        if (sizeof(type) != sizeof(uint64))              \
+            res = *(type *)p;                           \
+        else                                            \
+            res = (type)GET_U64_FROM_ADDR((uint32 *)p); \
+        if (!is_little_endian())                        \
+            exchange_##type((uint8 *)&res);             \
+        p += sizeof(type);                              \
+    } while (0)
+
+#define read_byte_array(p, p_end, addr, len) \
+    do {                                     \
+        CHECK_BUF(p, p_end, len);            \
+        bh_memcpy_s(addr, len, p, len);      \
+        p += len;                            \
+    } while (0)
+
+#define read_string(p, p_end, str)                                \
+    do {                                                          \
+        if (!(str = load_string((uint8 **)&p, p_end, module,      \
+                                is_load_from_file_buf, error_buf, \
+                                error_buf_size)))                 \
+            goto fail;                                            \
+    } while (0)
+
+#endif
+
+#define read_uint8(p, p_end, res) TEMPLATE_READ(p, p_end, res, uint8)
+#define read_uint16(p, p_end, res) TEMPLATE_READ(p, p_end, res, uint16)
+#define read_uint32(p, p_end, res) TEMPLATE_READ(p, p_end, res, uint32)
+#define read_uint64(p, p_end, res) TEMPLATE_READ(p, p_end, res, uint64)
 
 /* Legal values for bin_type */
 #define BIN_TYPE_ELF32L 0 /* 32-bit little endian */
