@@ -123,7 +123,7 @@ GET_U64_FROM_ADDR(uint32 *addr)
     return u.val;
 }
 
-#if 1
+#if defined(BUILD_TARGET_XTENSA)
 static inline uint8 *
 COPY_BYTES_FROM_ADDR(uint8 *dest, size_t dlen, uint8 *p, size_t plen)
 {
@@ -248,8 +248,8 @@ GET_U16_FROM_ADDR(uint8 *p)
 
 #define read_string(p, p_end, str)                                \
     do {                                                          \
-        if (!(str = copy_string_with_word_align((uint8 **)&p, p_end, module,      \
-                                is_load_from_file_buf, error_buf, \
+        if (!(str = load_string((uint8 **)&p, p_end, module,      \
+                                is_load_from_file_buf, true, error_buf, \
                                 error_buf_size)))                 \
             goto fail;                                            \
     } while (0)
@@ -284,7 +284,7 @@ GET_U16_FROM_ADDR(uint8 *p)
 #define read_string(p, p_end, str)                                \
     do {                                                          \
         if (!(str = load_string((uint8 **)&p, p_end, module,      \
-                                is_load_from_file_buf, error_buf, \
+                                is_load_from_file_buf, false, error_buf, \
                                 error_buf_size)))                 \
             goto fail;                                            \
     } while (0)
@@ -346,7 +346,7 @@ loader_malloc(uint64 size, char *error_buf, uint32 error_buf_size)
 }
 
 static char *
-const_str_set_insert(const uint8 *str, int32 len, AOTModule *module,
+const_str_set_insert(const uint8 *str, int32 len, AOTModule *module, bool is_vram_word_align,
                      char *error_buf, uint32 error_buf_size)
 {
     HashMap *set = module->const_str_set;
@@ -367,8 +367,11 @@ const_str_set_insert(const uint8 *str, int32 len, AOTModule *module,
         return NULL;
     }
 
-    //bh_memcpy_s(c_str, (uint32)(len + 1), str, (uint32)len);
-    COPY_BYTES_FROM_ADDR(c_str, (uint32)(len + 1), str, (uint32)len);
+    if(is_vram_word_align) {
+        COPY_BYTES_FROM_ADDR(c_str, (uint32)(len + 1), str, (uint32)len);
+    } else {
+        bh_memcpy_s(c_str, (uint32)(len + 1), str, (uint32)len);
+    }
     c_str[len] = '\0';
 
     if ((value = bh_hash_map_find(set, c_str))) {
@@ -388,7 +391,8 @@ const_str_set_insert(const uint8 *str, int32 len, AOTModule *module,
 
 static char *
 load_string(uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
-            bool is_load_from_file_buf, char *error_buf, uint32 error_buf_size)
+            bool is_load_from_file_buf, bool is_vram_word_align,
+            char *error_buf, uint32 error_buf_size)
 {
     uint8 *p = *p_buf;
     const uint8 *p_end = buf_end;
@@ -400,6 +404,12 @@ load_string(uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
 
     if (str_len == 0) {
         str = "";
+    }
+    else if(is_vram_word_align) {
+        if (!(str = const_str_set_insert((uint8 *)p, str_len, module, is_vram_word_align,
+                                         error_buf, error_buf_size))) {
+            goto fail;
+        }
     }
     else if (p[str_len - 1] == '\0') {
         /* The string is terminated with '\0', use it directly */
@@ -417,41 +427,8 @@ load_string(uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
         /* Load from sections, the file buffer cannot be reffered to
            after loading, we must create another string and insert it
            into const string set */
-        if (!(str = const_str_set_insert((uint8 *)p, str_len, module, error_buf,
-                                         error_buf_size))) {
-            goto fail;
-        }
-    }
-    p += str_len;
-
-    *p_buf = p;
-    return str;
-fail:
-    return NULL;
-}
-
-static char *
-copy_string_with_word_align(uint8 **p_buf, const uint8 *buf_end,
-                            AOTModule *module, bool is_load_from_file_buf,
-                            char *error_buf, uint32 error_buf_size)
-{
-    uint8 *p = *p_buf;
-    const uint8 *p_end = buf_end;
-    char *str;
-    uint16 str_len;
-
-    read_uint16(p, p_end, str_len);
-    CHECK_BUF(p, p_end, str_len);
-
-    if (str_len == 0) {
-        str = "";
-    }
-    else {
-        /* Load from sections, the file buffer cannot be reffered to
-           after loading, we must create another string and insert it
-           into const string set */
-        if (!(str = const_str_set_insert((uint8 *)p, str_len, module, error_buf,
-                                         error_buf_size))) {
+        if (!(str = const_str_set_insert((uint8 *)p, str_len, module, is_vram_word_align,
+                                         error_buf, error_buf_size))) {
             goto fail;
         }
     }
