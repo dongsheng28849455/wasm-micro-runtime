@@ -59,11 +59,9 @@ typedef sem_t korp_sem;
 /* On NuttX, time_t is uint32_t */
 #define BH_TIME_T_MAX 0xffffffff
 
-#if defined(CONFIG_INTERPRETERS_WAMR_RELO_XIP)
 int32_t esp32_app_vmmap(void *vdest, const void *src, uint size);
 int32_t esp32_app_release_vram(uint32_t vaddr);
 int32_t esp32_app_request_vram(uint32_t size);
-#endif
 
 /*
  * NuttX doesn't have O_DIRECTORY or directory open.

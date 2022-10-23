@@ -551,8 +551,7 @@ main(int argc, char *argv[])
         printf("esp32_app_vmmap failed\n");
         goto fail2;
     }
-    
-    // literal_vrtl now points to the beginning of aot file
+    wasm_runtime_free(wasm_file_buf);
     is_xip_file = true;
 #else
 #if WASM_ENABLE_AOT != 0
@@ -580,7 +579,6 @@ main(int argc, char *argv[])
 #if WASM_ENABLE_MULTI_MODULE != 0
     wasm_runtime_set_module_reader(module_reader_callback, moudle_destroyer);
 #endif
-
     /* load WASM module */
     if (!(wasm_module = wasm_runtime_load(pvram, wasm_file_size,
                                           error_buf, sizeof(error_buf)))) {
@@ -647,12 +645,7 @@ fail2:
         wasm_runtime_free(wasm_file_buf);
     else
     {
-        #if defined(CONFIG_INTERPRETERS_WAMR_RELO_XIP)
-        esp32_app_release_vram(literal_vrtl);
-        wasm_runtime_free(wasm_file_buf);
-        #else
-        os_munmap(wasm_file_buf, wasm_file_size);
-        #endif
+        esp32_app_release_vram(pvram);
     }
 
 fail1:
@@ -662,10 +655,8 @@ fail1:
          native_handle_idx++)
         dlclose(native_handle_list[native_handle_idx]);
 #endif
-
     /* destroy runtime environment */
     wasm_runtime_destroy();
-
 #if WASM_ENABLE_SPEC_TEST != 0
     (void)ret;
     return 0;
