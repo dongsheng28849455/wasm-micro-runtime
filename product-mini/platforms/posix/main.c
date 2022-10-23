@@ -537,6 +537,24 @@ main(int argc, char *argv[])
               (uint8 *)bh_read_file_to_buffer(wasm_file, &wasm_file_size)))
         goto fail1;
 
+// workround
+#if 1
+    uint32 *pvram = (uint32 *)esp32_app_request_vram(wasm_file_size);
+    if(pvram < 0)
+    {
+        printf("request esp32 vram failed\n");
+        goto fail2;
+    }
+
+    if (esp32_app_vmmap(pvram, wasm_file_buf, wasm_file_size) < 0)
+    {
+        printf("esp32_app_vmmap failed\n");
+        goto fail2;
+    }
+    
+    // literal_vrtl now points to the beginning of aot file
+    is_xip_file = true;
+#else
 #if WASM_ENABLE_AOT != 0
     if (wasm_runtime_is_xip_file(wasm_file_buf, wasm_file_size)) {
         uint8 *wasm_file_mapped;
@@ -557,13 +575,14 @@ main(int argc, char *argv[])
         is_xip_file = true;
     }
 #endif
+#endif
 
 #if WASM_ENABLE_MULTI_MODULE != 0
     wasm_runtime_set_module_reader(module_reader_callback, moudle_destroyer);
 #endif
 
     /* load WASM module */
-    if (!(wasm_module = wasm_runtime_load(wasm_file_buf, wasm_file_size,
+    if (!(wasm_module = wasm_runtime_load(pvram, wasm_file_size,
                                           error_buf, sizeof(error_buf)))) {
         printf("%s\n", error_buf);
         goto fail2;
@@ -627,7 +646,14 @@ fail2:
     if (!is_xip_file)
         wasm_runtime_free(wasm_file_buf);
     else
+    {
+        #if defined(CONFIG_INTERPRETERS_WAMR_RELO_XIP)
+        esp32_app_release_vram(literal_vrtl);
+        wasm_runtime_free(wasm_file_buf);
+        #else
         os_munmap(wasm_file_buf, wasm_file_size);
+        #endif
+    }
 
 fail1:
 #if BH_HAS_DLFCN

@@ -69,8 +69,15 @@ static const aot_intrinsic g_intrinsic_mapping[] = {
     { "i64.div_u", "aot_intrinsic_i64_div_u", AOT_INTRINSIC_FLAG_I64_DIV_U},
     { "i64.rem_s", "aot_intrinsic_i64_rem_s", AOT_INTRINSIC_FLAG_I64_REM_S},
     { "i64.rem_u", "aot_intrinsic_i64_rem_u", AOT_INTRINSIC_FLAG_I64_REM_U},
+    { "i32.div_u", "aot_intrinsic_i32_div_u", AOT_INTRINSIC_FLAG_I32_DIV_U},
 };
 /* clang-format on */
+
+uint32
+aot_intrinsic_i32_div_u(uint32 l, uint32 r)
+{
+    return l / r;
+}
 
 static const uint32 g_intrinsic_count =
     sizeof(g_intrinsic_mapping) / sizeof(aot_intrinsic);
@@ -561,6 +568,14 @@ add_f32_common_intrinsics(AOTCompContext *comp_ctx)
     add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_F32_FDIV);
     add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_F32_SQRT);
     add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_F32_CMP);
+    add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_I32_DIV_U);
+
+    add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_F32_MIN);
+    add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_F32_MAX);
+    add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_F32_CEIL);
+    add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_F32_FLOOR);
+    add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_F32_TRUNC);
+    add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_F32_RINT);
 }
 
 static void
@@ -573,6 +588,13 @@ add_f64_common_intrinsics(AOTCompContext *comp_ctx)
     add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_F64_FDIV);
     add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_F64_SQRT);
     add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_F64_CMP);
+
+    add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_F64_MIN);
+    add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_F64_MAX);
+    add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_F64_CEIL);
+    add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_F64_FLOOR);
+    add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_F64_TRUNC);
+    add_intrinsic_capability(comp_ctx, AOT_INTRINSIC_FLAG_F64_RINT);
 }
 
 static void
