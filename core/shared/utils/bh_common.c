@@ -160,11 +160,11 @@ b_strcpy_s(char *s1, unsigned int s1max, const char *s2)
 char *
 bh_strdup(const char *s)
 {
-    unsigned int size;
+    uint32 size;
     char *s1 = NULL;
 
     if (s) {
-        size = (unsigned int)(strlen(s) + 1);
+        size = (uint32)(strlen(s) + 1);
         if ((s1 = BH_MALLOC(size)))
             bh_memcpy_s(s1, size, s, size);
     }
@@ -174,11 +174,11 @@ bh_strdup(const char *s)
 char *
 wa_strdup(const char *s)
 {
-    unsigned int size;
+    uint32 size;
     char *s1 = NULL;
 
     if (s) {
-        size = (unsigned int)(strlen(s) + 1);
+        size = (uint32)(strlen(s) + 1);
         if ((s1 = WA_MALLOC(size)))
             bh_memcpy_s(s1, size, s, size);
     }
