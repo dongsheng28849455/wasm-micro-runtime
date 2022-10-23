@@ -539,7 +539,7 @@ main(int argc, char *argv[])
 
 // workround
 #if 1
-    uint32 *pvram = (uint32 *)esp32_app_request_vram(wasm_file_size);
+    const uint32 *pvram = (uint32 *)esp32_app_request_vram(wasm_file_size);
     if(pvram < 0)
     {
         printf("request esp32 vram failed\n");

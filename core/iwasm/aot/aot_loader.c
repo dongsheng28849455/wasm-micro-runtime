@@ -168,40 +168,32 @@ COPY_BYTES_FROM_ADDR(uint8 *dest, size_t dlen, uint8 *p, size_t plen)
             read_size = p + plen - pa;
         }
     }
-
     bh_assert((pre_read_valid_size + read_size + suf_read_valid_size) == plen);
 
-    printf("dongsheng: copy pre segment\n");
-    usleep(10);
-
     // copy pre segment
-    uint8 buff[4] = { 0 };
-    bh_memcpy_s(buff, sizeof(uint32), p_pre_read, sizeof(uint32));
-    bh_memcpy_s(dest, pre_read_valid_size, buff + pre_read_valid_offset,
+    uint32 buff;
+    uint8* pbuff = &buff;
+    buff = (*(uint32*)p_pre_read);
+    bh_memcpy_s(dest, pre_read_valid_size, pbuff + pre_read_valid_offset,
                 pre_read_valid_size);
 
-    printf("dongsheng: copy segment\n");
-    usleep(10);
     // copy segment
-    memset(buff, 0, 4);
     if (read_size < 4) {
-        bh_memcpy_s(buff, sizeof(uint32), p_read, sizeof(uint32));
-        bh_memcpy_s(dest + pre_read_valid_size, read_size, buff, read_size);
+        buff = (*(uint32*)p_read);
+        bh_memcpy_s(dest + pre_read_valid_size, read_size, pbuff, read_size);
     }
     else {
-        bh_memcpy_s(dest + pre_read_valid_size, read_size, pa, read_size);
+        uint32* des = (uint32*)(dest + pre_read_valid_size);
+        uint32* src = (uint32*)p_read;
+        for(int i = 0;i < read_size/4;i++)
+            *des++ = *src++;
     }
 
-    printf("dongsheng: suff segment\n");
-    usleep(10);
     // copy suffix segment
-    memset(buff, 0, 4);
-    bh_memcpy_s(buff, sizeof(uint32), p_suf_read, sizeof(uint32));
+    buff = (*(uint32*)p_suf_read);
     bh_memcpy_s(dest + pre_read_valid_size + read_size, suf_read_valid_size,
-                buff, suf_read_valid_size);
+                pbuff, suf_read_valid_size);
 
-    printf("dongsheng: COPY_BYTES_FROM_ADDR out\n");
-    usleep(10);
     return dest;
 }
 
@@ -210,8 +202,7 @@ GET_U8_FROM_ADDR(uint8* p)
 {
     bh_assert(p);
     uint8 res = 0;
-    printf("dongsheng: GET_U8_FROM_ADDR in\n");
-    usleep(10);    
+
     COPY_BYTES_FROM_ADDR(&res, sizeof(uint8), p, sizeof(uint8));
     return res;
 }
@@ -221,8 +212,7 @@ GET_U16_FROM_ADDR(uint8 *p)
 {
     bh_assert(p);
     uint16 res;
-    printf("dongsheng: GET_U16_FROM_ADDR in\n");
-    usleep(10);  
+
     COPY_BYTES_FROM_ADDR((uint8 *)&res, sizeof(uint16), p, sizeof(uint16));
     return res;
 }
