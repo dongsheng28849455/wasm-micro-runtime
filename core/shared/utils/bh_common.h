@@ -49,8 +49,8 @@ extern "C" {
 
 int
 b_memcpy_s(void *s1, unsigned int s1max, const void *s2, unsigned int n);
-uint8 *
-b_memcpy_aw(uint8 *dest, size_t dlen, uint8 *p, size_t plen);
+int
+b_memcpy_aw(void *s1, unsigned int s1max, void *s2, unsigned int n);
 int
 b_memmove_s(void *s1, unsigned int s1max, const void *s2, unsigned int n);
 int
