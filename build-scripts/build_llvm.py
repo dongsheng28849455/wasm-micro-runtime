@@ -207,8 +207,8 @@ def main():
             "branch": "release/13.x",
         },
         "xtensa": {
-            "repo": "https://github.com/espressif/llvm-project.git",
-            "branch": "xtensa_release_13.0.0",
+            "repo": "https://github.com/midokura/llvm-project.git",
+            "branch": "features/enable_constant_islands_as_default",
         },
         "default": {
             "repo": "https://github.com/llvm/llvm-project.git",

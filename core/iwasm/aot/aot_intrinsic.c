@@ -66,18 +66,12 @@ static const aot_intrinsic g_intrinsic_mapping[] = {
     { "f32.const", NULL, AOT_INTRINSIC_FLAG_F32_CONST },
     { "f64.const", NULL, AOT_INTRINSIC_FLAG_F64_CONST },
     { "i64.div_s", "aot_intrinsic_i64_div_s", AOT_INTRINSIC_FLAG_I64_DIV_S},
+    { "i32.div_u", "aot_intrinsic_i32_div_u", AOT_INTRINSIC_FLAG_I32_DIV_U},
     { "i64.div_u", "aot_intrinsic_i64_div_u", AOT_INTRINSIC_FLAG_I64_DIV_U},
     { "i64.rem_s", "aot_intrinsic_i64_rem_s", AOT_INTRINSIC_FLAG_I64_REM_S},
     { "i64.rem_u", "aot_intrinsic_i64_rem_u", AOT_INTRINSIC_FLAG_I64_REM_U},
-    { "i32.div_u", "aot_intrinsic_i32_div_u", AOT_INTRINSIC_FLAG_I32_DIV_U},
 };
 /* clang-format on */
-
-uint32
-aot_intrinsic_i32_div_u(uint32 l, uint32 r)
-{
-    return l / r;
-}
 
 static const uint32 g_intrinsic_count =
     sizeof(g_intrinsic_mapping) / sizeof(aot_intrinsic);
@@ -500,6 +494,12 @@ aot_intrinsic_f64_cmp(AOTFloatCond cond, float64 lhs, float64 rhs)
 
 int64
 aot_intrinsic_i64_div_s(int64 l, int64 r)
+{
+    return l / r;
+}
+
+uint32
+aot_intrinsic_i32_div_u(uint32 l, uint32 r)
 {
     return l / r;
 }
