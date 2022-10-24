@@ -19,9 +19,9 @@ extern "C" {
         bh_assert(_ret == 0);                                         \
     } while (0)
 
-#define bh_memcpy_aw(dest, dlen, src, slen)                            \
+#define bh_memcpy_aw(dest, dlen, src, slen)                           \
     do {                                                              \
-        int _ret = slen == 0 ? 0 : b_memcpy_aw(dest, dlen, src, slen); \
+        int _ret = slen == 0 ? 0 : b_memcpy_aw(dest, dlen, src, slen);\
         (void)_ret;                                                   \
         bh_assert(_ret == 0);                                         \
     } while (0)

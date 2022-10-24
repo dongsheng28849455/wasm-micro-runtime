@@ -274,7 +274,7 @@ loader_malloc(uint64 size, char *error_buf, uint32 error_buf_size)
 }
 
 static char *
-const_str_set_insert(const uint8 *str, int32 len, AOTModule *module, bool is_vram_word_align,
+const_str_set_insert(const uint8 *str, int32 len, AOTModule *module, bool is_vram_align_word,
                      char *error_buf, uint32 error_buf_size)
 {
     HashMap *set = module->const_str_set;
@@ -295,7 +295,7 @@ const_str_set_insert(const uint8 *str, int32 len, AOTModule *module, bool is_vra
         return NULL;
     }
 
-    if(is_vram_word_align) {
+    if(is_vram_align_word) {
         bh_memcpy_aw(c_str, (uint32)(len + 1), str, (uint32)len);
     } else {
         bh_memcpy_s(c_str, (uint32)(len + 1), str, (uint32)len);
@@ -319,7 +319,7 @@ const_str_set_insert(const uint8 *str, int32 len, AOTModule *module, bool is_vra
 
 static char *
 load_string(uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
-            bool is_load_from_file_buf, bool is_vram_word_align,
+            bool is_load_from_file_buf, bool is_vram_align_word,
             char *error_buf, uint32 error_buf_size)
 {
     uint8 *p = *p_buf;
@@ -333,8 +333,8 @@ load_string(uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
     if (str_len == 0) {
         str = "";
     }
-    else if(is_vram_word_align) {
-        if (!(str = const_str_set_insert((uint8 *)p, str_len, module, is_vram_word_align,
+    else if(is_vram_align_word) {
+        if (!(str = const_str_set_insert((uint8 *)p, str_len, module, is_vram_align_word,
                                          error_buf, error_buf_size))) {
             goto fail;
         }
@@ -355,7 +355,7 @@ load_string(uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
         /* Load from sections, the file buffer cannot be reffered to
            after loading, we must create another string and insert it
            into const string set */
-        if (!(str = const_str_set_insert((uint8 *)p, str_len, module, is_vram_word_align,
+        if (!(str = const_str_set_insert((uint8 *)p, str_len, module, is_vram_align_word,
                                          error_buf, error_buf_size))) {
             goto fail;
         }
