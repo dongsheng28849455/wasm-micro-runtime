@@ -147,9 +147,8 @@ GET_U16_FROM_ADDR(const uint8 *p)
 
 #define TEMPLATE_READ(p, p_end, res, type)              \
     do {                                                \
-        if (sizeof(type) != sizeof(uint64)) {           \
+        if (sizeof(type) != sizeof(uint64))             \
             p = (uint8 *)align_ptr(p, sizeof(type));    \
-        }                                               \
         else                                            \
             /* align 4 bytes if type is uint64 */       \
             p = (uint8 *)align_ptr(p, sizeof(uint32));  \
@@ -186,9 +185,8 @@ GET_U16_FROM_ADDR(const uint8 *p)
 
 #define TEMPLATE_READ(p, p_end, res, type)              \
     do {                                                \
-        if (sizeof(type) != sizeof(uint64)) {           \
+        if (sizeof(type) != sizeof(uint64))             \
             p = (uint8 *)align_ptr(p, sizeof(type));    \
-        }                                               \
         else                                            \
             /* align 4 bytes if type is uint64 */       \
             p = (uint8 *)align_ptr(p, sizeof(uint32));  \
