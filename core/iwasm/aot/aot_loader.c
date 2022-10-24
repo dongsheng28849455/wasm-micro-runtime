@@ -126,7 +126,7 @@ GET_U64_FROM_ADDR(uint32 *addr)
 #if defined(BUILD_TARGET_XTENSA)
 
 static inline uint8
-GET_U8_FROM_ADDR(uint8* p)
+GET_U8_FROM_ADDR(const uint8* p)
 {
     bh_assert(p);
     uint8 res = 0;
@@ -136,7 +136,7 @@ GET_U8_FROM_ADDR(uint8* p)
 }
 
 static inline uint16
-GET_U16_FROM_ADDR(uint8 *p)
+GET_U16_FROM_ADDR(const uint8 *p)
 {
     bh_assert(p);
     uint16 res;
@@ -170,7 +170,7 @@ GET_U16_FROM_ADDR(uint8 *p)
 #define read_byte_array(p, p_end, addr, len)            \
     do {                                                \
         CHECK_BUF(p, p_end, len);                       \
-        bh_memcpy_aw(addr, len, p, len);           \
+        bh_memcpy_aw(addr, len, p, len);                \
         p += len;                                       \
     } while (0)
 

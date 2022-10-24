@@ -50,7 +50,7 @@ extern "C" {
 int
 b_memcpy_s(void *s1, unsigned int s1max, const void *s2, unsigned int n);
 int
-b_memcpy_aw(void *s1, unsigned int s1max, void *s2, unsigned int n);
+b_memcpy_aw(void *s1, unsigned int s1max, const void *s2, unsigned int n);
 int
 b_memmove_s(void *s1, unsigned int s1max, const void *s2, unsigned int n);
 int

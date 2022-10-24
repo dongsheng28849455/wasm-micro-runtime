@@ -6,19 +6,19 @@
 #include "bh_common.h"
 
 
-static uint8 *
-align_ptr(const uint8 *src, uint32 b)
+static char *
+align_ptr(char *src, uint32 b)
 {
     uintptr_t v = (uintptr_t)src;
     uintptr_t m = b - 1;
-    return (uint8 *)((v + m) & ~m);
+    return (char *)((v + m) & ~m);
 }
 
 int
-b_memcpy_aw(void *s1, unsigned int s1max, void *s2, unsigned int n)
+b_memcpy_aw(void *s1, unsigned int s1max, const void *s2, unsigned int n)
 {
     char *dest = (char *)s1;
-    char *src = (char *)s2;
+    char *src  = (char *)s2;
 
     if(dest == NULL || src == NULL) {
         return -1;
@@ -70,7 +70,7 @@ b_memcpy_aw(void *s1, unsigned int s1max, void *s2, unsigned int n)
 
     // copy pre segment
     unsigned int buff;
-    char* pbuff = &buff;
+    char* pbuff = (char*)&buff;
     buff = (*(unsigned int*)p_pre);
     bh_memcpy_s(dest, pre_size, pbuff + pre_offset,
                 pre_size);
