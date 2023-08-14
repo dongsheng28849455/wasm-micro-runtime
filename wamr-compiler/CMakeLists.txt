@@ -247,7 +247,7 @@ endif()
 
 #We disable these flags by default to stay the same with wasm runtime
 #set(CMAKE_C_FLAGS \
-     "${CMAKE_C_FLAGS} -mindirect-branch=thunk -mfunction-return=thunk")
+    #  "${CMAKE_C_FLAGS} -mindirect-branch=thunk -mfunction-return=thunk")
 
 if (NOT MSVC)
   add_definitions(-D_FORTIFY_SOURCE=2)
