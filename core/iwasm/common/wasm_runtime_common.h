@@ -796,6 +796,12 @@ wasm_runtime_is_loading_module(const char *module_name);
 
 void
 wasm_runtime_destroy_loading_module_list();
+
+
+WASMExport *
+loader_find_export(const WASMModuleCommon *module, const char *module_name,
+                       const char *field_name, uint8 export_kind,
+                       char *error_buf, uint32 error_buf_size);
 #endif /* WASM_ENALBE_MULTI_MODULE */
 
 bool

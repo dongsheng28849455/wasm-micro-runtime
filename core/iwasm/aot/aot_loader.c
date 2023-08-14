@@ -564,34 +564,9 @@ aot_loader_find_export(const AOTModule *module, const char *module_name,
                        const char *field_name, uint8 export_kind,
                        char *error_buf, uint32 error_buf_size)
 {
-    AOTExport *export;
-    uint32 i;
-
-    for (i = 0, export = module->exports; i < module->export_count;
-         ++i, ++export) {
-        /**
-         * need to consider a scenario that different kinds of exports
-         * may have the same name, like
-         * (table (export "m1" "exported") 10 funcref)
-         * (memory (export "m1" "exported") 10)
-         **/
-        if (export->kind == export_kind && !strcmp(field_name, export->name)) {
-            break;
-        }
-    }
-
-    if (i == module->export_count) {
-        LOG_DEBUG("can not find an export %d named %s in the module %s",
-                  export_kind, field_name, module_name);
-        set_error_buf(error_buf, error_buf_size,
-                      "unknown import or incompatible import type");
-        return NULL;
-    }
-
-    (void)module_name;
-
-    /* since there is a validation in load_export_section(), it is for sure
-     * export->index is valid*/
+    AOTExport *export = (AOTExport *)loader_find_export((WASMModuleCommon*)module, module_name,
+                      field_name, export_kind,
+                      error_buf, error_buf_size);
     return export;
 }
 

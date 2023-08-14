@@ -128,7 +128,7 @@ sub_module_instantiate(AOTModule *module, AOTModuleInstance *module_inst,
         AOTModule *sub_module = (AOTModule *)sub_module_list_node->module;
         WASMModuleInstance *sub_module_inst = NULL;
 
-        sub_module_inst = aot_instantiate(sub_module, false, NULL, stack_size,
+        sub_module_inst = aot_instantiate(sub_module, NULL, NULL, stack_size,
                                           heap_size, error_buf, error_buf_size);
         if (!sub_module_inst) {
             LOG_DEBUG("instantiate %s failed",

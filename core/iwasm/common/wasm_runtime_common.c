@@ -643,6 +643,34 @@ get_package_type(const uint8 *buf, uint32 size)
     return Package_Type_Unknown;
 }
 
+#if WASM_ENABLE_MULTI_MODULE != 0
+#define find_export(module, module_name,                                          \
+                          field_name, export_kind,                                \
+                           error_buf, error_buf_size)                             \
+                                                                                  \
+do {                                                                              \
+    typeof(*(module->exports)) *export;                                           \
+    uint32 i;                                                                     \
+                                                                                  \
+    for (i = 0, export = module->exports; i < module->export_count;               \
+         ++i, ++export) {                                                         \
+                                                                                  \
+        if (export->kind == export_kind && !strcmp(field_name, export->name)) {   \
+            result = (WASMExport *)export;                                        \
+            goto exit;                                                            \
+        }                                                                         \
+    }                                                                             \
+                                                                                  \
+    if (i == module->export_count) {                                              \
+        LOG_DEBUG("can not find an export %d named %s in the module %s",          \
+                  export_kind, field_name, module_name);                          \
+        set_error_buf(error_buf, error_buf_size,                                  \
+                      "unknown import or incompatible import type");              \
+        goto exit;                                                                \
+    }                                                                             \
+} while (0)
+#endif /* end of WASM_ENABLE_MULTI_MODULE */
+
 #if WASM_ENABLE_AOT != 0
 static uint8 *
 align_ptr(const uint8 *p, uint32 b)
@@ -5552,3 +5580,22 @@ wasm_runtime_is_import_global_linked(const char *module_name,
     return false;
 #endif
 }
+
+#if WASM_ENABLE_MULTI_MODULE != 0
+WASMExport *
+loader_find_export(const WASMModuleCommon *module, const char *module_name,
+                       const char *field_name, uint8 export_kind,
+                       char *error_buf, uint32 error_buf_size)
+{
+    WASMExport *result = NULL;
+    if(module->module_type == 1) {
+        find_export(((AOTModule *)module), module_name,
+            field_name, export_kind,error_buf, error_buf_size);
+    } else {
+        find_export(((WASMModule *)module), module_name,
+            field_name, export_kind,error_buf, error_buf_size);
+    }
+exit:
+    return result;
+}
+#endif
