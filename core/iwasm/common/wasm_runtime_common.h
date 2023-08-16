@@ -796,8 +796,9 @@ wasm_runtime_is_loading_module(const char *module_name);
 
 void
 wasm_runtime_destroy_loading_module_list();
+#endif
 
-
+#if WASM_ENABLE_LIBC_WASI != 0 || WASM_ENABLE_MULTI_MODULE != 0
 WASMExport *
 loader_find_export(const WASMModuleCommon *module, const char *module_name,
                        const char *field_name, uint8 export_kind,

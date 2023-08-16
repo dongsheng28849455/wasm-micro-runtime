@@ -5588,7 +5588,6 @@ loader_find_export(const WASMModuleCommon *module, const char *module_name,
                        char *error_buf, uint32 error_buf_size)
 {
     WASMExport *result = NULL;
-    printf("field_name:%s\n",field_name);
     if(module->module_type == 1) {
         find_export(((AOTModule *)module), module_name,
             field_name, export_kind,error_buf, error_buf_size);
@@ -5596,7 +5595,6 @@ loader_find_export(const WASMModuleCommon *module, const char *module_name,
         find_export(((WASMModule *)module), module_name,
             field_name, export_kind,error_buf, error_buf_size);
     }
-    (void *)module_name;
 exit:
     return result;
 }
