@@ -643,7 +643,7 @@ get_package_type(const uint8 *buf, uint32 size)
     return Package_Type_Unknown;
 }
 
-#if WASM_ENABLE_MULTI_MODULE != 0
+#if WASM_ENABLE_LIBC_WASI != 0 || WASM_ENABLE_MULTI_MODULE != 0
 #define find_export(module, module_name,                                          \
                           field_name, export_kind,                                \
                            error_buf, error_buf_size)                             \
@@ -5581,13 +5581,14 @@ wasm_runtime_is_import_global_linked(const char *module_name,
 #endif
 }
 
-#if WASM_ENABLE_MULTI_MODULE != 0
+#if WASM_ENABLE_LIBC_WASI != 0 || WASM_ENABLE_MULTI_MODULE != 0
 WASMExport *
 loader_find_export(const WASMModuleCommon *module, const char *module_name,
                        const char *field_name, uint8 export_kind,
                        char *error_buf, uint32 error_buf_size)
 {
     WASMExport *result = NULL;
+    printf("field_name:%s\n",field_name);
     if(module->module_type == 1) {
         find_export(((AOTModule *)module), module_name,
             field_name, export_kind,error_buf, error_buf_size);
@@ -5595,6 +5596,7 @@ loader_find_export(const WASMModuleCommon *module, const char *module_name,
         find_export(((WASMModule *)module), module_name,
             field_name, export_kind,error_buf, error_buf_size);
     }
+    (void *)module_name;
 exit:
     return result;
 }
