@@ -1205,7 +1205,7 @@ aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
     module_inst->module_type = Wasm_Module_AoT;
     module_inst->module = (void *)module;
     module_inst->e =
-        (AOTModuleInstanceExtra *)((uint8 *)module_inst + extra_info_offset);
+        (WASMModuleInstanceExtra *)((uint8 *)module_inst + extra_info_offset);
 
 #if WASM_ENABLE_MULTI_MODULE != 0
     ((AOTModuleInstanceExtra *)module_inst->e)->sub_module_inst_list =
