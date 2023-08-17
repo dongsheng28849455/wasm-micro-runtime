@@ -557,7 +557,7 @@ str2uint32(const char *buf, uint32 *p_res);
 
 static bool
 str2uint64(const char *buf, uint64 *p_res);
-
+#if WASM_ENABLE_MULTI_MODULE != 0
 static void *
 aot_loader_resolve_function(const char *module_name, const char *function_name,
                             const AOTFuncType *expected_function_type,

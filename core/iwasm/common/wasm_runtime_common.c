@@ -124,7 +124,38 @@ runtime_malloc(uint64 size, WASMModuleInstanceCommon *module_inst,
     memset(mem, 0, (uint32)size);
     return mem;
 }
-
+static void *
+loader_malloc(uint64 size, char *error_buf, uint32 error_buf_size)
+{
+    void *mem;
+    if (size >= UINT32_MAX || !(mem = wasm_runtime_malloc((uint32)size))) {
+        set_error_buf(error_buf, error_buf_size, "allocate memory failed");
+        return NULL;
+    }
+    memset(mem, 0, (uint32)size);
+    return mem;
+}
+static void
+set_error_buf_v(const WASMModuleCommon *module, char *error_buf,
+                uint32 error_buf_size, const char *format, ...)
+{
+    va_list args;
+    char buf[128];
+    if (error_buf != NULL) {
+        va_start(args, format);
+        vsnprintf(buf, sizeof(buf), format, args);
+        va_end(args);
+        if (module->module_type == Wasm_Module_AoT) {
+            snprintf(error_buf, error_buf_size, "AOT module load failed: %s",
+                     buf);
+        }
+        else if (module->module_type == Wasm_Module_Bytecode) {
+            snprintf(error_buf, error_buf_size, "WASM module load failed: %s",
+                     buf);
+            ;
+        }
+    }
+}
 #if WASM_ENABLE_FAST_JIT != 0
 static JitCompOptions jit_options = { 0 };
 #endif
@@ -648,7 +679,7 @@ get_package_type(const uint8 *buf, uint32 size)
                     error_buf_size)                                          \
                                                                              \
     do {                                                                     \
-        typeof(*(module->exports)) *export;                                  \
+        WASMExport *export;                                  \
         uint32 i;                                                            \
                                                                              \
         for (i = 0, export = module->exports; i < module->export_count;      \
@@ -928,7 +959,7 @@ wasm_runtime_find_module_registered(const char *module_name)
         module = module_next;
     }
     os_mutex_unlock(&registered_module_list_lock);
-
+    
     return module ? module->module : NULL;
 }
 
@@ -1144,7 +1175,7 @@ wasm_runtime_load(uint8 *buf, uint32 size, char *error_buf,
     if (get_package_type(buf, size) == Wasm_Module_Bytecode) {
 #if WASM_ENABLE_INTERP != 0
         module_common =
-            (WASMModuleCommon *)wasm_load(buf, size, error_buf, error_buf_size);
+            (WASMModuleCommon *)wasm_load(buf, size,true, error_buf, error_buf_size);
         return register_module_with_null_name(module_common, error_buf,
                                               error_buf_size);
 #endif
@@ -5608,12 +5639,12 @@ search_sub_module(const WASMModuleCommon *parent_module,
 {
     WASMRegisteredModule *node = NULL;
     if (parent_module->module_type == Wasm_Module_AoT) {
-        node =
-            bh_list_first_elem((AOTModule *)parent_module->import_module_list);
+        node = bh_list_first_elem(
+            ((AOTModule *)parent_module)->import_module_list);
     }
     else if (parent_module->module_type == Wasm_Module_Bytecode) {
-        node =
-            bh_list_first_elem((WASMModule *)parent_module->import_module_list);
+        node = bh_list_first_elem(
+            ((WASMModule *)parent_module)->import_module_list);
     }
 
     while (node && strcmp(sub_module_name, node->module_name)) {
@@ -5643,11 +5674,11 @@ register_sub_module(const WASMModuleCommon *parent_module,
     node->module_name = sub_module_name;
     node->module = sub_module;
     if (parent_module->module_type == Wasm_Module_AoT) {
-        ret = bh_list_insert((AOTModule *)parent_module->import_module_list,
+        ret = bh_list_insert(((AOTModule *)parent_module)->import_module_list,
                              node);
     }
     else if (parent_module->module_type == Wasm_Module_Bytecode) {
-        ret = bh_list_insert((WASMModule *)parent_module->import_module_list,
+        ret = bh_list_insert(((WASMModule *)parent_module)->import_module_list,
                              node);
     }
     bh_assert(BH_LIST_SUCCESS == ret);
@@ -5712,7 +5743,7 @@ load_depended_module(const WASMModuleCommon *parent_module,
                                             error_buf_size);
     }
     else if (parent_module->module_type == Wasm_Module_Bytecode) {
-        sub_module = wasm_loader_load(buffer, buffer_size, false, error_buf,
+        sub_module = wasm_load(buffer, buffer_size, false, error_buf,
                                       error_buf_size);
     }
 
