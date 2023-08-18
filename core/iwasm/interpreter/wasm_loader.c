@@ -934,7 +934,7 @@ load_function_import(const uint8 **p_buf, const uint8 *buf_end,
 #if WASM_ENABLE_MULTI_MODULE != 0
     else {
         if (!wasm_runtime_is_built_in_module(sub_module_name)) {
-            sub_module = load_depended_module((WASMModuleCommon *)parent_module,
+            sub_module = (WASMModule *)load_depended_module((WASMModuleCommon *)parent_module,
                                               sub_module_name, error_buf,
                                               error_buf_size);
             if (!sub_module) {
@@ -1025,7 +1025,7 @@ load_table_import(const uint8 **p_buf, const uint8 *buf_end,
 #if WASM_ENABLE_MULTI_MODULE != 0
     if (!wasm_runtime_is_built_in_module(sub_module_name)) {
         sub_module =
-            load_depended_module((WASMModuleCommon *)parent_module,
+            (WASMModule *)load_depended_module((WASMModuleCommon *)parent_module,
                                  sub_module_name, error_buf, error_buf_size);
         if (!sub_module) {
             return false;
@@ -1160,7 +1160,7 @@ load_memory_import(const uint8 **p_buf, const uint8 *buf_end,
 #if WASM_ENABLE_MULTI_MODULE != 0
     if (!wasm_runtime_is_built_in_module(sub_module_name)) {
         sub_module =
-            load_depended_module((WASMModuleCommon *)parent_module,
+            (WASMModule *)load_depended_module((WASMModuleCommon *)parent_module,
                                  sub_module_name, error_buf, error_buf_size);
         if (!sub_module) {
             return false;
@@ -1261,7 +1261,7 @@ load_global_import(const uint8 **p_buf, const uint8 *buf_end,
     if (!global->is_linked
         && !wasm_runtime_is_built_in_module(sub_module_name)) {
         sub_module =
-            load_depended_module((WASMModuleCommon *)parent_module,
+            (WASMModule *)load_depended_module((WASMModuleCommon *)parent_module,
                                  sub_module_name, error_buf, error_buf_size);
         if (!sub_module) {
             return false;

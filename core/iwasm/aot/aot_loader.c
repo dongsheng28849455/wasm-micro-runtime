@@ -1445,7 +1445,7 @@ load_import_funcs(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
             &import_funcs[i].call_conv_raw);
         if (!linked_func) {
             if (!wasm_runtime_is_built_in_module(sub_module_name)) {
-                sub_module = load_depended_module((WASMModuleCommon *)module,
+                sub_module = (AOTModule *)load_depended_module((WASMModuleCommon *)module,
                                                   sub_module_name, error_buf,
                                                   error_buf_size);
                 if (!sub_module) {
