@@ -1406,7 +1406,7 @@ load_import_funcs(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
                   bool is_load_from_file_buf, char *error_buf,
                   uint32 error_buf_size)
 {
-    char *sub_module_name, *field_name;
+    char *module_name, *field_name;
     const uint8 *buf = *p_buf;
     AOTImportFunc *import_funcs;
     uint64 size;
@@ -1434,26 +1434,26 @@ load_import_funcs(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
 
 #if WASM_ENABLE_MULTI_MODULE != 0
         declare_func_type = module->func_types[import_funcs[i].func_type_index];
-        read_string(buf, buf_end, sub_module_name);
+        read_string(buf, buf_end, module_name);
         read_string(buf, buf_end, field_name);
 
-        import_funcs[i].module_name = sub_module_name;
+        import_funcs[i].module_name = module_name;
         import_funcs[i].func_name = field_name;
         linked_func = wasm_native_resolve_symbol(
-            sub_module_name, field_name, declare_func_type,
+            module_name, field_name, declare_func_type,
             &import_funcs[i].signature, &import_funcs[i].attachment,
             &import_funcs[i].call_conv_raw);
         if (!linked_func) {
-            if (!wasm_runtime_is_built_in_module(sub_module_name)) {
+            if (!wasm_runtime_is_built_in_module(module_name)) {
                 sub_module = (AOTModule *)load_depended_module((WASMModuleCommon *)module,
-                                                  sub_module_name, error_buf,
+                                                  module_name, error_buf,
                                                   error_buf_size);
                 if (!sub_module) {
                     return false;
                 }
             }
             linked_func = aot_loader_resolve_function(
-                sub_module_name, field_name, declare_func_type, error_buf,
+                module_name, field_name, declare_func_type, error_buf,
                 error_buf_size);
         }
         import_funcs[i].func_ptr_linked = linked_func;
@@ -1464,10 +1464,10 @@ load_import_funcs(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
             module->func_types[import_funcs[i].func_type_index];
         read_string(buf, buf_end, import_funcs[i].module_name);
         read_string(buf, buf_end, import_funcs[i].func_name);
-        sub_module_name = import_funcs[i].module_name;
+        module_name = import_funcs[i].module_name;
         field_name = import_funcs[i].func_name;
         import_funcs[i].func_ptr_linked = wasm_native_resolve_symbol(
-            sub_module_name, field_name, import_funcs[i].func_type,
+            module_name, field_name, import_funcs[i].func_type,
             &import_funcs[i].signature, &import_funcs[i].attachment,
             &import_funcs[i].call_conv_raw);
 #endif

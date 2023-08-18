@@ -95,10 +95,6 @@ typedef struct AOTModuleInstanceExtra {
     bh_list sub_module_inst_list_head;
     bh_list *sub_module_inst_list;
 #endif
-#if WASM_CONFIGUABLE_BOUNDS_CHECKS != 0
-    /* Disable bounds checks or not */
-    bool disable_bounds_checks;
-#endif
 } AOTModuleInstanceExtra;
 
 #if defined(OS_ENABLE_HW_BOUND_CHECK) && defined(BH_PLATFORM_WINDOWS)

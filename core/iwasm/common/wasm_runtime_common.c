@@ -126,10 +126,10 @@ runtime_malloc(uint64 size, WASMModuleInstanceCommon *module_inst,
 }
 #if WASM_ENABLE_MULTI_MODULE != 0
 /*
-    There is too much code redundancy here in AOT and WASM.
-    We don't want to define it again, so we use macros.
+    Todo:
+    Let loader_malloc to be a general API both for AOT and WASM.
 */
-#define loader_malloc(size, NULL, error_buf, error_buf_size) \
+#define loader_malloc(size,error_buf, error_buf_size) \
     runtime_malloc(size, NULL, error_buf, error_buf_size)
 static void
 set_error_buf_v(const WASMModuleCommon *module, char *error_buf,
@@ -5667,7 +5667,7 @@ register_sub_module(const WASMModuleCommon *parent_module,
         return true;
     }
 
-    node = loader_malloc(sizeof(WASMRegisteredModule), NULL, NULL, 0);
+    node = loader_malloc(sizeof(WASMRegisteredModule), NULL, 0);
     if (!node) {
         return false;
     }
@@ -5837,7 +5837,7 @@ sub_module_instantiate(WASMModuleCommon *module,
             goto failed;
         }
         sub_module_inst_list_node = loader_malloc(
-            sizeof(WASMSubModInstNode), NULL, error_buf, error_buf_size);
+            sizeof(WASMSubModInstNode),  error_buf, error_buf_size);
         if (!sub_module_inst_list_node) {
             LOG_DEBUG("Malloc WASMSubModInstNode failed, SZ:%d",
                       sizeof(WASMSubModInstNode));
