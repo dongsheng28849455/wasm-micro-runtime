@@ -90,7 +90,6 @@ typedef struct AOTFunctionInstance {
 typedef struct AOTModuleInstanceExtra {
     DefPointer(const uint32 *, stack_sizes);
     WASMModuleInstanceExtraCommon common;
-    CApiFuncImport *c_api_func_imports;
 #if WASM_ENABLE_MULTI_MODULE != 0
     bh_list sub_module_inst_list_head;
     bh_list *sub_module_inst_list;

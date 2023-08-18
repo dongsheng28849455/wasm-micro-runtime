@@ -5620,11 +5620,11 @@ loader_find_export(const WASMModuleCommon *module, const char *module_name,
                    uint32 error_buf_size)
 {
     WASMExport *result = NULL;
-    if (module->module_type == 1) {
+    if (module->module_type ==Wasm_Module_AoT) {
         find_export(((AOTModule *)module), module_name, field_name, export_kind,
                     error_buf, error_buf_size);
     }
-    else {
+    else if (module->module_type == Wasm_Module_Bytecode) {
         find_export(((WASMModule *)module), module_name, field_name,
                     export_kind, error_buf, error_buf_size);
     }
@@ -5780,12 +5780,7 @@ register_sub_module:
     return sub_module;
 
 unload_module:
-    if (parent_module->module_type == Wasm_Module_AoT) {
-        aot_unload((AOTModule *)sub_module);
-    }
-    else if (parent_module->module_type == Wasm_Module_Bytecode) {
-        wasm_unload((WASMModule *)sub_module);
-    }
+    wasm_runtime_unload(sub_module);
 
 destroy_file_buffer:
     if (destroyer) {
