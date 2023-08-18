@@ -578,13 +578,12 @@ aot_loader_resolve_function(const char *module_name, const char *function_name,
     }
 
     module = (AOTModule *)module_reg;
-    export =
-        loader_find_export(module_reg, module_name, function_name,
-                               EXPORT_KIND_FUNC, error_buf, error_buf_size);
+    export = loader_find_export(module_reg, module_name, function_name,
+                                EXPORT_KIND_FUNC, error_buf, error_buf_size);
     if (!export) {
         return NULL;
     }
-    
+
     /* resolve function type and function */
     if (export->index < module->import_func_count) {
         target_function_type = module->import_funcs[export->index].func_type;
@@ -1446,8 +1445,9 @@ load_import_funcs(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
             &import_funcs[i].call_conv_raw);
         if (!linked_func) {
             if (!wasm_runtime_is_built_in_module(sub_module_name)) {
-                sub_module = load_depended_module((WASMModuleCommon *)module, sub_module_name,
-                                                  error_buf, error_buf_size);
+                sub_module = load_depended_module((WASMModuleCommon *)module,
+                                                  sub_module_name, error_buf,
+                                                  error_buf_size);
                 if (!sub_module) {
                     return false;
                 }

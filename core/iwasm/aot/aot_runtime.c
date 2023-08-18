@@ -1140,8 +1140,9 @@ aot_instantiate(AOTModule *module, AOTModuleInstance *parent,
 #if WASM_ENABLE_MULTI_MODULE != 0
     ((AOTModuleInstanceExtra *)module_inst->e)->sub_module_inst_list =
         &((AOTModuleInstanceExtra *)module_inst->e)->sub_module_inst_list_head;
-    ret = sub_module_instantiate(module, module_inst, stack_size, heap_size,
-                                 error_buf, error_buf_size);
+    ret = sub_module_instantiate(
+        (WASMModuleCommon *)module, (WASMModuleInstanceCommon *)module_inst,
+        stack_size, heap_size, error_buf, error_buf_size);
     if (!ret) {
         LOG_DEBUG("build a sub module list failed");
         goto fail;
@@ -1270,7 +1271,7 @@ aot_deinstantiate(AOTModuleInstance *module_inst, bool is_sub_inst)
 #endif
 
 #if WASM_ENABLE_MULTI_MODULE != 0
-    sub_module_deinstantiate(module_inst);
+    sub_module_deinstantiate((WASMModuleInstanceCommon *)module_inst);
 #endif
     if (module_inst->tables)
         wasm_runtime_free(module_inst->tables);
@@ -1954,6 +1955,10 @@ aot_invoke_native(WASMExecEnv *exec_env, uint32 func_idx, uint32 argc,
     void *attachment;
     char buf[96];
     bool ret = false;
+#if WASM_ENABLE_MULTI_MODULE != 0
+    bh_list *sub_module_list_node = NULL;
+    const char *sub_inst_name = NULL;
+#endif
     bh_assert(func_idx < aot_module->import_func_count);
 
     import_func = aot_module->import_funcs + func_idx;
@@ -1978,11 +1983,11 @@ aot_invoke_native(WASMExecEnv *exec_env, uint32 func_idx, uint32 argc,
     else if (!import_func->call_conv_raw) {
         signature = import_func->signature;
 #if WASM_ENABLE_MULTI_MODULE != 0
-        bh_list *sub_module_list_node =
+        sub_module_list_node =
             ((AOTModuleInstanceExtra *)module_inst->e)->sub_module_inst_list;
         sub_module_list_node = bh_list_first_elem(sub_module_list_node);
         while (sub_module_list_node) {
-            char *sub_inst_name =
+            sub_inst_name =
                 ((AOTSubModInstNode *)sub_module_list_node)->module_name;
             if (strcmp(sub_inst_name, import_func->module_name) == 0) {
                 exec_env = wasm_runtime_get_exec_env_singleton(

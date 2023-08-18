@@ -53,9 +53,9 @@ set_error_buf_v(char *error_buf, uint32 error_buf_size, const char *format, ...)
 WASMModule *
 wasm_load(uint8 *buf, uint32 size,
 #if WASM_ENABLE_MULTI_MODULE != 0
-bool main_module,
+          bool main_module,
 #endif
- char *error_buf, uint32 error_buf_size)
+          char *error_buf, uint32 error_buf_size)
 {
     return wasm_loader_load(buf, size,
 #if WASM_ENABLE_MULTI_MODULE != 0
@@ -1645,8 +1645,9 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
 #if WASM_ENABLE_MULTI_MODULE != 0
     module_inst->e->sub_module_inst_list =
         &module_inst->e->sub_module_inst_list_head;
-    ret = sub_module_instantiate(module, module_inst, stack_size, heap_size,
-                                 error_buf, error_buf_size);
+    ret = sub_module_instantiate(
+        (WASMModuleCommon *)module, (WASMModuleInstanceCommon *)module_inst,
+        stack_size, heap_size, error_buf, error_buf_size);
     if (!ret) {
         LOG_DEBUG("build a sub module list failed");
         goto fail;
@@ -2127,7 +2128,7 @@ wasm_deinstantiate(WASMModuleInstance *module_inst, bool is_sub_inst)
 #endif
 
 #if WASM_ENABLE_MULTI_MODULE != 0
-    sub_module_deinstantiate(module_inst);
+    sub_module_deinstantiate((WASMModuleInstanceCommon *)module_inst);
 #endif
 
     if (module_inst->memory_count > 0)

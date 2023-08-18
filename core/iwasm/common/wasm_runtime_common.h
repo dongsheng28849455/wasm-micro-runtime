@@ -805,8 +805,8 @@ search_sub_module(const WASMModuleCommon *parent_module,
                   const char *sub_module_name);
 
 bool
-register_sub_module(const WASMModuleCommon *parent_module, const char *sub_module_name,
-                    WASMModuleCommon *sub_module);
+register_sub_module(const WASMModuleCommon *parent_module,
+                    const char *sub_module_name, WASMModuleCommon *sub_module);
 
 WASMModuleCommon *
 load_depended_module(const WASMModuleCommon *parent_module,
@@ -814,18 +814,19 @@ load_depended_module(const WASMModuleCommon *parent_module,
                      uint32 error_buf_size);
 
 bool
-sub_module_instantiate(WASMModuleCommon *module, WASMModuleInstance *module_inst,
-                       uint32 stack_size, uint32 heap_size, char *error_buf,
+sub_module_instantiate(WASMModuleCommon *module,
+                       WASMModuleInstanceCommon *module_inst, uint32 stack_size,
+                       uint32 heap_size, char *error_buf,
                        uint32 error_buf_size);
 void
-sub_module_deinstantiate(WASMModuleInstance *module_inst);
+sub_module_deinstantiate(WASMModuleInstanceCommon *module_inst);
 #endif
 
 #if WASM_ENABLE_LIBC_WASI != 0 || WASM_ENABLE_MULTI_MODULE != 0
 WASMExport *
 loader_find_export(const WASMModuleCommon *module, const char *module_name,
-                       const char *field_name, uint8 export_kind,
-                       char *error_buf, uint32 error_buf_size);
+                   const char *field_name, uint8 export_kind, char *error_buf,
+                   uint32 error_buf_size);
 #endif /* WASM_ENALBE_MULTI_MODULE */
 
 bool

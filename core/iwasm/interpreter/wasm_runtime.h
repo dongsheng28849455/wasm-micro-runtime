@@ -399,9 +399,9 @@ wasm_get_func_code_end(WASMFunctionInstance *func)
 WASMModule *
 wasm_load(uint8 *buf, uint32 size,
 #if WASM_ENABLE_MULTI_MODULE != 0
-bool main_module,
+          bool main_module,
 #endif
-char *error_buf, uint32 error_buf_size);
+          char *error_buf, uint32 error_buf_size);
 
 WASMModule *
 wasm_load_from_sections(WASMSection *section_list, char *error_buf,
