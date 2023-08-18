@@ -124,17 +124,12 @@ runtime_malloc(uint64 size, WASMModuleInstanceCommon *module_inst,
     memset(mem, 0, (uint32)size);
     return mem;
 }
-static void *
-loader_malloc(uint64 size, char *error_buf, uint32 error_buf_size)
-{
-    void *mem;
-    if (size >= UINT32_MAX || !(mem = wasm_runtime_malloc((uint32)size))) {
-        set_error_buf(error_buf, error_buf_size, "allocate memory failed");
-        return NULL;
-    }
-    memset(mem, 0, (uint32)size);
-    return mem;
-}
+#if WASM_ENABLE_MULTI_MODULE!=0
+/*
+    There is too much code redundancy here in AOT and WASM.
+    We don't want to define it again, so we use macros.
+*/
+#define loader_malloc(size, NULL, error_buf, error_buf_size) runtime_malloc(size, NULL, error_buf, error_buf_size)
 static void
 set_error_buf_v(const WASMModuleCommon *module, char *error_buf,
                 uint32 error_buf_size, const char *format, ...)
@@ -156,6 +151,7 @@ set_error_buf_v(const WASMModuleCommon *module, char *error_buf,
         }
     }
 }
+#endif
 #if WASM_ENABLE_FAST_JIT != 0
 static JitCompOptions jit_options = { 0 };
 #endif
@@ -959,7 +955,7 @@ wasm_runtime_find_module_registered(const char *module_name)
         module = module_next;
     }
     os_mutex_unlock(&registered_module_list_lock);
-    
+
     return module ? module->module : NULL;
 }
 
@@ -5666,7 +5662,7 @@ register_sub_module(const WASMModuleCommon *parent_module,
         return true;
     }
 
-    node = loader_malloc(sizeof(WASMRegisteredModule), NULL, 0);
+    node = loader_malloc(sizeof(WASMRegisteredModule), NULL, NULL, 0);
     if (!node) {
         return false;
     }
@@ -5795,4 +5791,90 @@ delete_loading_module:
     return NULL;
 }
 
+bool
+sub_module_instantiate(WASMModuleCommon *module, WASMModuleInstance *module_inst,
+                       uint32 stack_size, uint32 heap_size, char *error_buf,
+                       uint32 error_buf_size)
+{
+    bh_list *sub_module_inst_list=NULL;
+    WASMRegisteredModule *sub_module_list_node =NULL;
+
+    if (module->module_type == Wasm_Module_AoT) {
+     sub_module_inst_list =
+        ((AOTModuleInstanceExtra *)module_inst->e)->sub_module_inst_list;
+     sub_module_list_node =
+        bh_list_first_elem((AOTModule *)module->import_module_list);
+    }
+    else if (module->module_type == Wasm_Module_Bytecode) {
+      sub_module_inst_list =
+        ((WASMModuleInstanceExtra *)module_inst->e)->sub_module_inst_list;
+     sub_module_list_node =
+        bh_list_first_elem((WASMModule *)module->import_module_list);
+    }
+    while (sub_module_list_node) {
+        WASMSubModInstNode *sub_module_inst_list_node = NULL;
+        WASMModuleCommon *sub_module = sub_module_list_node->module;
+        WASMModuleInstance *sub_module_inst = NULL;
+
+        sub_module_inst = wasm_runtime_instantiate_internal(sub_module, NULL, NULL, stack_size,
+                                          heap_size, error_buf, error_buf_size);
+        if (!sub_module_inst) {
+            LOG_DEBUG("instantiate %s failed",
+                      sub_module_list_node->module_name);
+            goto failed;
+        }
+        sub_module_inst_list_node = runtime_malloc(sizeof(WASMSubModInstNode),
+                                                   error_buf, error_buf_size);
+        if (!sub_module_inst_list_node) {
+            LOG_DEBUG("Malloc WASMSubModInstNode failed, SZ:%d",
+                      sizeof(WASMSubModInstNode));
+            goto failed;
+        }
+        sub_module_inst_list_node->module_inst = sub_module_inst;
+        sub_module_inst_list_node->module_name =
+            sub_module_list_node->module_name;
+        bh_list_status ret =
+            bh_list_insert(sub_module_inst_list, sub_module_inst_list_node);
+        bh_assert(BH_LIST_SUCCESS == ret);
+        (void)ret;
+
+        sub_module_list_node = bh_list_elem_next(sub_module_list_node);
+
+        continue;
+    failed:
+        if (sub_module_inst_list_node) {
+            bh_list_remove(sub_module_inst_list, sub_module_inst_list_node);
+            wasm_runtime_free(sub_module_inst_list_node);
+        }
+
+        if (sub_module_inst)
+            wasm_deinstantiate(sub_module_inst, false);
+        return false;
+    }
+
+    return true;
+}
+
+void
+sub_module_deinstantiate(WASMModuleInstance *module_inst)
+{
+    bh_list *list =NULL;
+    if (module_inst->module_type == Wasm_Module_AoT) {
+    bh_list *list =
+        ((AOTModuleInstanceExtra *)module_inst->e)->sub_module_inst_list;
+      }
+    else if (module_inst->module_type == Wasm_Module_Bytecode) {
+     bh_list *list =
+        ((WASMModuleInstanceExtra *)module_inst->e)->sub_module_inst_list;
+     }
+      WASMSubModInstNode *node = bh_list_first_elem(list);
+    
+    while (node) {
+        WASMSubModInstNode *next_node = bh_list_elem_next(node);
+        bh_list_remove(list, node);
+        wasm_runtime_deinstantiate_internal(node->module_inst, false);
+        wasm_runtime_free(node);
+        node = next_node;
+    }
+}
 #endif
