@@ -148,7 +148,6 @@ set_error_buf_v(const WASMModuleCommon *module, char *error_buf,
         else if (module->module_type == Wasm_Module_Bytecode) {
             snprintf(error_buf, error_buf_size, "WASM module load failed: %s",
                      buf);
-            ;
         }
     }
 }
