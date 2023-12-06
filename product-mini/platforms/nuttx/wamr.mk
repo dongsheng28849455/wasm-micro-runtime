@@ -245,7 +245,7 @@ CSRCS += $(IWASM_ROOT)/libraries/wasi-nn/src/wasi_nn.c
 CSRCS += $(IWASM_ROOT)/libraries/wasi-nn/src/utils/wasi_nn_app_native.c
 
 CXXEXT = .cpp
-CXXSRCS += $(IWASM_ROOT)/libraries/wasi-nn/src/wasi_nn_tensorflowlite_micro.cpp
+CXXSRCS += $(IWASM_ROOT)/libraries/wasi-nn/src/wasi_nn_tensorflowlite.cpp
 CXXFLAGS += -DWASM_ENABLE_WASI_NN=1
 CXXFLAGS += -DTFLITE_WITH_STABLE_ABI=0
 CXXFLAGS += -DTFLITE_USE_OPAQUE_DELEGATE=0
@@ -317,6 +317,10 @@ CXXFLAGS += -DNN_LOG_LEVEL=CONFIG_INTERPRETERS_WAMR_WASI_NN_LOG_LEVEL
 
 TFLITE_PATH = $(APPDIR)/mlearning/tflite_micro_esp/tflite_micro_esp/tflite-micro-esp-examples/components/esp-tflite-micro
 NN_PATH = $(APPDIR)/mlearning/tflite_micro_esp/esp_nn/esp-nn
+
+ifeq ($(CONFIG_ARCH_XTENSA),y)
+CXXFLAGS += -DWASM_ENABLE_TFLITE_MICRO
+endif
 
 CXXFLAGS   += ${shell $(INCDIR) $(INCDIROPT) "$(CC)" "$(TFLITE_PATH)"}
 CXXFLAGS   += ${shell $(INCDIR) $(INCDIROPT) "$(CC)" "$(TFLITE_PATH)/third_party/flatbuffers/include"}
