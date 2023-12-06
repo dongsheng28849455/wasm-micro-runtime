@@ -32,7 +32,6 @@ typedef error (*SET_INPUT)(void *, graph_execution_context, uint32_t, tensor *);
 typedef error (*COMPUTE)(void *, graph_execution_context);
 typedef error (*GET_OUTPUT)(void *, graph_execution_context, uint32_t,
                             tensor_data, uint32_t *);
-typedef void (*INIT)(void **tflite_ctx);
 
 typedef struct {
     LOAD load;
@@ -40,7 +39,6 @@ typedef struct {
     SET_INPUT set_input;
     COMPUTE compute;
     GET_OUTPUT get_output;
-    INIT init;
 } api_function;
 
 /* Global variables */
@@ -52,7 +50,7 @@ static api_function lookup[] = {
     { NULL, NULL, NULL, NULL, NULL },
     { tensorflowlite_load, tensorflowlite_init_execution_context,
       tensorflowlite_set_input, tensorflowlite_compute,
-      tensorflowlite_get_output, tensorflowlite_initialize }
+      tensorflowlite_get_output }
 };
 
 static HashMap *hashmap;
@@ -107,9 +105,7 @@ wasi_nn_initialize_context()
         return NULL;
     }
     wasi_nn_ctx->is_model_loaded = false;
-    wasi_nn_ctx->current_encoding = tensorflowlite;
-
-    lookup[wasi_nn_ctx->current_encoding].init(&wasi_nn_ctx->tflite_ctx);
+    tensorflowlite_initialize(&wasi_nn_ctx->tflite_ctx);
     return wasi_nn_ctx;
 }
 
@@ -159,7 +155,7 @@ wasi_nn_ctx_destroy(WASINNContext *wasi_nn_ctx)
     NN_DBG_PRINTF("Freeing wasi-nn");
     NN_DBG_PRINTF("-> is_model_loaded: %d", wasi_nn_ctx->is_model_loaded);
     NN_DBG_PRINTF("-> current_encoding: %d", wasi_nn_ctx->current_encoding);
-    lookup[wasi_nn_ctx->current_encoding].destroy(wasi_nn_ctx->tflite_ctx);
+    tensorflowlite_destroy(wasi_nn_ctx->tflite_ctx);
     wasm_runtime_free(wasi_nn_ctx);
 }
 
