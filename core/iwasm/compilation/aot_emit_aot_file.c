@@ -593,6 +593,13 @@ get_func_section_size(AOTCompData *comp_data, AOTObjectData *obj_data)
         size = (uint32)sizeof(uint64) * comp_data->func_count;
 
     size += (uint32)sizeof(uint32) * comp_data->func_count;
+
+    const bool need_precheck = obj_data->comp_ctx->enable_stack_bound_check
+                               || obj_data->comp_ctx->enable_stack_estimation;
+    /* aot_func#xxx + aot_func_internal#xxx in XIP mode for xtensa */
+    if (obj_data->comp_ctx->is_indirect_mode && need_precheck)
+        size *= 2;
+
     return size;
 }
 
@@ -1736,7 +1743,12 @@ aot_emit_init_data_section(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
         return false;
 
     offset = align_uint(offset, 4);
-    EMIT_U32(comp_data->func_count);
+    const bool need_precheck = obj_data->comp_ctx->enable_stack_bound_check
+                               || obj_data->comp_ctx->enable_stack_estimation;
+    if (obj_data->comp_ctx->is_indirect_mode && need_precheck)
+        EMIT_U32(comp_data->func_count * 2);
+    else
+        EMIT_U32(comp_data->func_count);
     EMIT_U32(comp_data->start_func_index);
 
     EMIT_U32(comp_data->aux_data_end_global_index);
@@ -1896,8 +1908,31 @@ aot_emit_func_section(uint8 *buf, uint8 *buf_end, uint32 *p_offset,
             EMIT_U64(func->text_offset);
     }
 
+    const bool need_precheck = obj_data->comp_ctx->enable_stack_bound_check
+                               || obj_data->comp_ctx->enable_stack_estimation;
+    if (obj_data->comp_ctx->is_indirect_mode && need_precheck) {
+        /*
+         * Explicitly emit aot_func_internal#xxx for Xtensa XIP, therefore,
+         * for aot_func#xxx, func_indexes ranged from 0 ~ func_count,
+         * for aot_func_internal#xxxx, from func_count + 1 ~ 2 * func_count.
+         */
+        for (i = 0, func = obj_data->funcs; i < obj_data->func_count;
+             i++, func++) {
+            if (is_32bit_binary(obj_data))
+                EMIT_U32(func->text_offset_of_aot_func_internal);
+            else
+                EMIT_U64(func->text_offset_of_aot_func_internal);
+        }
+    }
+
     for (i = 0; i < comp_data->func_count; i++)
         EMIT_U32(funcs[i]->func_type_index);
+
+    if (obj_data->comp_ctx->is_indirect_mode && need_precheck) {
+        /* func_type_index for aot_func_internal#xxxx */
+        for (i = 0; i < comp_data->func_count; i++)
+            EMIT_U32(funcs[i]->func_type_index);
+    }
 
     if (offset - *p_offset != section_size + sizeof(uint32) * 2) {
         aot_set_last_error("emit function section failed.");
