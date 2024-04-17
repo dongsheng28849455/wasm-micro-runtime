@@ -123,6 +123,10 @@ if (WAMR_BUILD_DEBUG_INTERP EQUAL 1)
   set (WAMR_BUILD_SIMD 0)
 endif ()
 
+if (NOT DEFINED WAMR_BUILD_MEM_ALLOC_WITH_USAGE)
+  set (WAMR_BUILD_MEM_ALLOC_WITH_USAGE 1)
+endif ()
+
 set (WAMR_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../..)
 
 include (${WAMR_ROOT_DIR}/build-scripts/runtime_lib.cmake)

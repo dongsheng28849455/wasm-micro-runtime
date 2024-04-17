@@ -112,6 +112,15 @@ typedef enum {
     Alloc_For_LinearMemory
 } mem_alloc_usage_t;
 
+typedef struct {
+    mem_alloc_usage_t usage;
+    void *user_data;
+} user_data_t;
+
+typedef void* (*malloc_func_t)(const user_data_t *data, uint64_t size);
+typedef void* (*realloc_func_t)(const user_data_t *data, void *ptr, uint64_t size);
+typedef void* (*free_func_t)(const user_data_t *data, void *ptr);
+
 /* Memory allocator option */
 typedef union MemAllocOption {
     struct {
@@ -119,9 +128,9 @@ typedef union MemAllocOption {
         uint32_t heap_size;
     } pool;
     struct {
-        void *malloc_func;
-        void *realloc_func;
-        void *free_func;
+        malloc_func_t malloc_func;
+        realloc_func_t realloc_func;
+        free_func_t free_func;
         /* allocator user data, only used when
            WASM_MEM_ALLOC_WITH_USER_DATA is defined */
         void *user_data;
