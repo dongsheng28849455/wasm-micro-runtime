@@ -89,6 +89,13 @@ os_mmap(void *hint, size_t size, int prot, int flags, os_file_handle file)
     return p;
 }
 
+void *
+os_mremap(void *old_addr, size_t old_size, size_t new_size)
+{
+    (void)old_size;
+    return realloc(old_addr, new_size);
+}
+
 void
 os_munmap(void *addr, size_t size)
 {
