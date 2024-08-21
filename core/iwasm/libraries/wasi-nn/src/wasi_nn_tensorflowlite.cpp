@@ -55,25 +55,6 @@ static uint8_t* wasi_nn_tensor_arena[MAX_GRAPH_EXEC_CONTEXTS_PER_INST] = {};
 
 tflite::MicroMutableOpResolver<6> wasi_nn_micro_op_resolver;
 #endif
-#if WASM_ENABLE_TFLITE_MICRO != 0
-/*
- * In order to use optimized tensorflow lite kernels, a signed int8_t quantized
- * model is preferred over the legacy unsigned model format. This means that
- * throughout this project, input images must be converted from unisgned to
- * signed format. The easiest and quickest way to convert from unsigned to
- * signed 8-bit integers is to subtract 128 from the unsigned value to get a
- * signed value.
-*/
-constexpr int scratchBufSize = 39 * 1024;
-
-/* An area of memory to use for input, output, and intermediate arrays.*/
-constexpr int kTensorArenaSize = 81 * 1024 + scratchBufSize;
-
-/* Maybe we should move this to external*/
-static uint8_t* wasi_nn_tensor_arena[MAX_GRAPH_EXEC_CONTEXTS_PER_INST] = {};
-
-tflite::MicroMutableOpResolver<6> wasi_nn_micro_op_resolver;
-#endif
 
 typedef struct {
 #if WASM_ENABLE_TFLITE_MICRO != 0
@@ -297,9 +278,8 @@ init_execution_context(void *tflite_ctx, graph g, graph_execution_context *ctx)
         wasm_runtime_free(wasi_nn_tensor_arena[g]);
         wasi_nn_tensor_arena[g] = NULL;
     }
-    if (wasi_nn_tensor_arena[g] == NULL) {
-        wasi_nn_tensor_arena[g] = (uint8_t *)wasm_runtime_malloc(kTensorArenaSize);
-    }
+    
+    wasi_nn_tensor_arena[g] = (uint8_t *)wasm_runtime_malloc(kTensorArenaSize);
     if (wasi_nn_tensor_arena[g] == NULL) {
         NN_ERR_PRINTF("Couldn't allocate memory of %d bytes\n", kTensorArenaSize);
         return missing_memory;
@@ -437,7 +417,7 @@ set_input(void *tflite_ctx, graph_execution_context ctx, uint32_t index,
     else { // TODO: Assumming uint8 quantized networks.
         TfLiteAffineQuantization *quant_info =
             (TfLiteAffineQuantization *)tensor->quantization.params;
-.        if (quant_info->scale->size != 1 || quant_info->zero_point->size != 1) {
+        if (quant_info->scale->size != 1 || quant_info->zero_point->size != 1) {
             NN_ERR_PRINTF("Quantization per channel is not supported");
             return runtime_error;
         }
