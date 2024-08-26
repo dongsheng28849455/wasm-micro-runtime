@@ -346,8 +346,8 @@ CXXFLAGS += -DXTENSA
 CFLAGS += -DNN_LOG_LEVEL=CONFIG_INTERPRETERS_WAMR_WASI_NN_LOG_LEVEL
 CXXFLAGS += -DNN_LOG_LEVEL=CONFIG_INTERPRETERS_WAMR_WASI_NN_LOG_LEVEL
 
-TFLITE_PATH = $(APPDIR)/mlearning/tflite_micro_esp/tflite_micro_esp/tflite-micro-esp-examples/components/esp-tflite-micro
-NN_PATH = $(APPDIR)/mlearning/tflite_micro_esp/esp_nn/esp-nn
+TFLITE_PATH = $(APPDIR)/mlearning/tflite_micro/tflite_micro_esp/tflite-micro-esp-examples/components/esp-tflite-micro
+NN_PATH = $(APPDIR)/mlearning/tflite_micro/tflite_micro_esp/esp_nn/esp-nn
 
 CXXFLAGS   += ${shell $(INCDIR) $(INCDIROPT) "$(CC)" "$(TFLITE_PATH)"}
 CXXFLAGS   += ${shell $(INCDIR) $(INCDIROPT) "$(CC)" "$(TFLITE_PATH)/third_party/flatbuffers/include"}

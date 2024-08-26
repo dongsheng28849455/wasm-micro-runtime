@@ -213,7 +213,7 @@ load(void *tflite_ctx, graph_builder_array *builder, graph_encoding encoding,
         NN_ERR_PRINTF("Model provided is schema version %d not equal to supported "
                 "version %d.", tfl_ctx->models[*g].model->version(), TFLITE_SCHEMA_VERSION);
         free(tfl_ctx->models[*g].model_pointer);
-        return missing_memory;
+        return unsupported_operation;
     }
 #endif
 
@@ -233,14 +233,27 @@ load_by_name(void *tflite_ctx, const char *filename, uint32_t filename_len,
         return res;
 
     // Load model
+#if WASM_ENABLE_TFLITE_MICRO != 0
+    tfl_ctx->models[*g].model =
+        const_cast<tflite::Model*>(tflite::GetModel(tfl_ctx->models[*g].model_pointer));
+#else
     tfl_ctx->models[*g].model =
         std::move(tflite::FlatBufferModel::BuildFromFile(filename, NULL));
+#endif
 
     if (tfl_ctx->models[*g].model == NULL) {
         NN_ERR_PRINTF("Loading model error.");
         return too_large;
     }
 
+#if WASM_ENABLE_TFLITE_MICRO != 0
+    if (tfl_ctx->models[*g].model->version() != TFLITE_SCHEMA_VERSION) {
+        NN_ERR_PRINTF("Model provided is schema version %d not equal to supported "
+                "version %d.", tfl_ctx->models[*g].model->version(), TFLITE_SCHEMA_VERSION);
+        free(tfl_ctx->models[*g].model_pointer);
+        return unsupported_operation;
+    }
+#endif
     // Use CPU as default
     tfl_ctx->models[*g].target = cpu;
     return success;
@@ -282,7 +295,7 @@ init_execution_context(void *tflite_ctx, graph g, graph_execution_context *ctx)
     wasi_nn_tensor_arena[g] = (uint8_t *)wasm_runtime_malloc(kTensorArenaSize);
     if (wasi_nn_tensor_arena[g] == NULL) {
         NN_ERR_PRINTF("Couldn't allocate memory of %d bytes\n", kTensorArenaSize);
-        return missing_memory;
+        return unsupported_operation;
     }
 
     tfl_ctx->interpreters[*ctx].interpreter = new tflite::MicroInterpreter(tfl_ctx->models[g].model,
