@@ -10,6 +10,12 @@
 #include "wasi_nn_types.h"
 #include "wasm_export.h"
 
+#if WASM_ENABLE_TFLITE_MICRO
+#include <tensorflow/lite/micro/micro_interpreter.h>
+#include <tensorflow/lite/micro/micro_log.h>
+#include <tensorflow/lite/micro/micro_mutable_op_resolver.h>
+#include <tensorflow/lite/schema/schema_generated.h>
+#else
 #include <tensorflow/lite/interpreter.h>
 #include <tensorflow/lite/kernels/register.h>
 #include <tensorflow/lite/model.h>
@@ -23,19 +29,50 @@
 #if WASM_ENABLE_WASI_NN_EXTERNAL_DELEGATE != 0
 #include <tensorflow/lite/delegates/external/external_delegate.h>
 #endif
+#endif
 
 /* Maximum number of graphs per WASM instance */
 #define MAX_GRAPHS_PER_INST 10
 /* Maximum number of graph execution context per WASM instance*/
 #define MAX_GRAPH_EXEC_CONTEXTS_PER_INST 10
 
+#if WASM_ENABLE_TFLITE_MICRO != 0
+/*
+ * In order to use optimized tensorflow lite kernels, a signed int8_t quantized
+ * model is preferred over the legacy unsigned model format. This means that
+ * throughout this project, input images must be converted from unisgned to
+ * signed format. The easiest and quickest way to convert from unsigned to
+ * signed 8-bit integers is to subtract 128 from the unsigned value to get a
+ * signed value.
+*/
+constexpr int scratchBufSize = 39 * 1024;
+
+/* An area of memory to use for input, output, and intermediate arrays.*/
+constexpr int kTensorArenaSize = 81 * 1024 + scratchBufSize;
+
+/* Maybe we should move this to external*/
+static uint8_t* wasi_nn_tensor_arena[MAX_GRAPH_EXEC_CONTEXTS_PER_INST] = {};
+
+tflite::MicroMutableOpResolver<6> wasi_nn_micro_op_resolver;
+#endif
+
 typedef struct {
+#if WASM_ENABLE_TFLITE_MICRO != 0
+    /* tflite::MicroInterpreter do not have ctor for unique_ptr yet.*/
+    tflite::MicroInterpreter* interpreter;
+#else
     std::unique_ptr<tflite::Interpreter> interpreter;
+#endif
 } Interpreter;
 
 typedef struct {
     char *model_pointer;
+#if WASM_ENABLE_TFLITE_MICRO != 0
+    /* tflite::Model do not have ctor for unique_ptr yet.*/
+    tflite::Model* model;
+#else
     std::unique_ptr<tflite::FlatBufferModel> model;
+#endif
     execution_target target;
 } Model;
 
@@ -45,7 +82,9 @@ typedef struct {
     uint32_t current_interpreters;
     Interpreter interpreters[MAX_GRAPH_EXEC_CONTEXTS_PER_INST];
     korp_mutex g_lock;
+#if WASM_ENABLE_TFLITE_MICRO == 0
     TfLiteDelegate *delegate;
+#endif
 } TFLiteContext;
 
 /* Utils */
@@ -150,10 +189,17 @@ load(void *tflite_ctx, graph_builder_array *builder, graph_encoding encoding,
     bh_memcpy_s(tfl_ctx->models[*g].model_pointer, size, builder->buf[0].buf,
                 size);
 
+#if WASM_ENABLE_TFLITE_MICRO != 0
+    /* Map the model into a usable data structure. This doesn't involve any*/
+    /* copying or parsing, it's a very lightweight operation.*/
+    tfl_ctx->models[*g].model =
+        const_cast<tflite::Model*>(tflite::GetModel(tfl_ctx->models[*g].model_pointer));
+#else
     // Save model flatbuffer
     tfl_ctx->models[*g].model =
         std::move(tflite::FlatBufferModel::BuildFromBuffer(
             tfl_ctx->models[*g].model_pointer, size, NULL));
+#endif
 
     if (tfl_ctx->models[*g].model == NULL) {
         NN_ERR_PRINTF("Loading model error.");
@@ -161,6 +207,15 @@ load(void *tflite_ctx, graph_builder_array *builder, graph_encoding encoding,
         tfl_ctx->models[*g].model_pointer = NULL;
         return too_large;
     }
+
+#if WASM_ENABLE_TFLITE_MICRO != 0
+    if (tfl_ctx->models[*g].model->version() != TFLITE_SCHEMA_VERSION) {
+        NN_ERR_PRINTF("Model provided is schema version %d not equal to supported "
+                "version %d.", tfl_ctx->models[*g].model->version(), TFLITE_SCHEMA_VERSION);
+        free(tfl_ctx->models[*g].model_pointer);
+        return unsupported_operation;
+    }
+#endif
 
     // Save target
     tfl_ctx->models[*g].target = target;
@@ -178,14 +233,27 @@ load_by_name(void *tflite_ctx, const char *filename, uint32_t filename_len,
         return res;
 
     // Load model
+#if WASM_ENABLE_TFLITE_MICRO != 0
+    tfl_ctx->models[*g].model =
+        const_cast<tflite::Model*>(tflite::GetModel(tfl_ctx->models[*g].model_pointer));
+#else
     tfl_ctx->models[*g].model =
         std::move(tflite::FlatBufferModel::BuildFromFile(filename, NULL));
+#endif
 
     if (tfl_ctx->models[*g].model == NULL) {
         NN_ERR_PRINTF("Loading model error.");
         return too_large;
     }
 
+#if WASM_ENABLE_TFLITE_MICRO != 0
+    if (tfl_ctx->models[*g].model->version() != TFLITE_SCHEMA_VERSION) {
+        NN_ERR_PRINTF("Model provided is schema version %d not equal to supported "
+                "version %d.", tfl_ctx->models[*g].model->version(), TFLITE_SCHEMA_VERSION);
+        free(tfl_ctx->models[*g].model_pointer);
+        return unsupported_operation;
+    }
+#endif
     // Use CPU as default
     tfl_ctx->models[*g].target = cpu;
     return success;
@@ -203,11 +271,51 @@ init_execution_context(void *tflite_ctx, graph g, graph_execution_context *ctx)
     if (success != (res = initialize_graph_ctx(tfl_ctx, g, ctx)))
         return res;
 
+#if WASM_ENABLE_TFLITE_MICRO != 0
+    /* tflite::MicroMutableOpResolver<6> wasi_nn_micro_op_resolver*/
+    /* Todo : maybe we can add more default op here? */
+    if (!wasi_nn_micro_op_resolver.FindOp(tflite::BuiltinOperator_AVERAGE_POOL_2D))
+        wasi_nn_micro_op_resolver.AddAveragePool2D();
+    if (!wasi_nn_micro_op_resolver.FindOp(tflite::BuiltinOperator_CONV_2D))
+        wasi_nn_micro_op_resolver.AddConv2D();
+    if (!wasi_nn_micro_op_resolver.FindOp(tflite::BuiltinOperator_DEPTHWISE_CONV_2D))
+        wasi_nn_micro_op_resolver.AddDepthwiseConv2D();
+    if (!wasi_nn_micro_op_resolver.FindOp(tflite::BuiltinOperator_RESHAPE))
+        wasi_nn_micro_op_resolver.AddReshape();
+    if (!wasi_nn_micro_op_resolver.FindOp(tflite::BuiltinOperator_SOFTMAX))
+        wasi_nn_micro_op_resolver.AddSoftmax();
+    if (!wasi_nn_micro_op_resolver.FindOp(tflite::BuiltinOperator_MAX_POOL_2D))
+        wasi_nn_micro_op_resolver.AddMaxPool2D();
+
+    if (wasi_nn_tensor_arena[g] != NULL) {
+        wasm_runtime_free(wasi_nn_tensor_arena[g]);
+        wasi_nn_tensor_arena[g] = NULL;
+    }
+    
+    wasi_nn_tensor_arena[g] = (uint8_t *)wasm_runtime_malloc(kTensorArenaSize);
+    if (wasi_nn_tensor_arena[g] == NULL) {
+        NN_ERR_PRINTF("Couldn't allocate memory of %d bytes\n", kTensorArenaSize);
+        return unsupported_operation;
+    }
+
+    /*tfl_ctx->interpreters[*ctx].interpreter = new tflite::MicroInterpreter(tfl_ctx->models[g].model,
+                                                               wasi_nn_micro_op_resolver,
+                                                               wasi_nn_tensor_arena[g],
+                                                               kTensorArenaSize);*/
+    /* use c-malloc/c-free instead of new/delete, because NUTTX cannot take template/operator as an symbol */
+    tfl_ctx->interpreters[*ctx].interpreter = (tflite::MicroInterpreter*)wasm_runtime_malloc(sizeof(tflite::MicroInterpreter));
+    tflite::MicroInterpreter static_interpreter(tfl_ctx->models[g].model, wasi_nn_micro_op_resolver,
+		                                    wasi_nn_tensor_arena[g], kTensorArenaSize);
+    memmove(tfl_ctx->interpreters[*ctx].interpreter, &static_interpreter, sizeof(tflite::MicroInterpreter));
+
+#else
     // Build the interpreter with the InterpreterBuilder.
     tflite::ops::builtin::BuiltinOpResolver resolver;
     tflite::InterpreterBuilder tflite_builder(*tfl_ctx->models[g].model,
                                               resolver);
     tflite_builder(&tfl_ctx->interpreters[*ctx].interpreter);
+#endif
+
     if (tfl_ctx->interpreters[*ctx].interpreter == NULL) {
         NN_ERR_PRINTF("Error when generating the interpreter.");
         return too_large;
@@ -398,7 +506,7 @@ get_output(void *tflite_ctx, graph_execution_context ctx, uint32_t index,
     }
 
     if (tensor->quantization.type == kTfLiteNoQuantization) {
-        NN_DBG_PRINTF("No quantization information");
+        NN_DBG_PRINTF("No quantization information. Using float as default");
         float *ot =
             tfl_ctx->interpreters[ctx].interpreter->typed_output_tensor<float>(
                 index);
@@ -424,6 +532,7 @@ get_output(void *tflite_ctx, graph_execution_context ctx, uint32_t index,
         float *output_tensor_f = (float *)output_tensor;
         for (uint32_t i = 0; i < model_tensor_size; ++i) {
             output_tensor_f[i] = (ot[i] - zero_point) * scale;
+	    NN_DBG_PRINTF("output_f[%d]: %f", i, output_tensor_f[i]);
         }
     }
 
@@ -434,7 +543,13 @@ get_output(void *tflite_ctx, graph_execution_context ctx, uint32_t index,
 __attribute__((visibility("default"))) wasi_nn_error
 init_backend(void **tflite_ctx)
 {
+#if WASM_ENABLE_TFLITE_MICRO != 0
+    TFLiteContext *tfl_ctx = (TFLiteContext *)wasm_runtime_malloc(sizeof(TFLiteContext));
+    TFLiteContext static_ctx;
+    memmove(tfl_ctx, &static_ctx, sizeof(TFLiteContext));
+#else
     TFLiteContext *tfl_ctx = new TFLiteContext();
+#endif
     if (tfl_ctx == NULL) {
         NN_ERR_PRINTF("Error when allocating memory for tensorflowlite.");
         return runtime_error;
@@ -452,7 +567,9 @@ init_backend(void **tflite_ctx)
         NN_ERR_PRINTF("Error while initializing the lock");
     }
 
+#if WASM_ENABLE_TFLITE_MICRO == 0
     tfl_ctx->delegate = NULL;
+#endif
 
     *tflite_ctx = (void *)tfl_ctx;
     return success;
@@ -471,8 +588,13 @@ deinit_backend(void *tflite_ctx)
 
     NN_DBG_PRINTF("Freeing memory.");
     for (int i = 0; i < MAX_GRAPHS_PER_INST; ++i) {
+#if WASM_ENABLE_TFLITE_MICRO != 0
+        tfl_ctx->models[i].model = NULL;
+#else
         tfl_ctx->models[i].model.reset();
+#endif
         if (tfl_ctx->models[i].model_pointer) {
+#if WASM_ENABLE_TFLITE_MICRO == 0
             if (tfl_ctx->delegate) {
                 switch (tfl_ctx->models[i].target) {
                     case gpu:
@@ -498,15 +620,36 @@ deinit_backend(void *tflite_ctx)
                         break;
                 }
             }
+#endif
             wasm_runtime_free(tfl_ctx->models[i].model_pointer);
         }
         tfl_ctx->models[i].model_pointer = NULL;
     }
     for (int i = 0; i < MAX_GRAPH_EXEC_CONTEXTS_PER_INST; ++i) {
+#if WASM_ENABLE_TFLITE_MICRO != 0
+        if (tfl_ctx->interpreters[i].interpreter)
+            tfl_ctx->interpreters[i].interpreter->Reset();
+        wasm_runtime_free(tfl_ctx->interpreters[i].interpreter);
+        tfl_ctx->interpreters[i].interpreter = NULL;
+#else
         tfl_ctx->interpreters[i].interpreter.reset();
+#endif
     }
+
+#if WASM_ENABLE_TFLITE_MICRO != 0
+    for (int i = 0; i < MAX_GRAPH_EXEC_CONTEXTS_PER_INST; ++i) {
+        if (wasi_nn_tensor_arena[i])
+            wasm_runtime_free(wasi_nn_tensor_arena[i]);
+        wasi_nn_tensor_arena[i] = NULL;
+    }
+#endif
+
     os_mutex_destroy(&tfl_ctx->g_lock);
+#if WASM_ENABLE_TFLITE_MICRO != 0
+    wasm_runtime_free(tfl_ctx);
+#else
     delete tfl_ctx;
+#endif
     NN_DBG_PRINTF("Memory free'd.");
     return success;
 }
