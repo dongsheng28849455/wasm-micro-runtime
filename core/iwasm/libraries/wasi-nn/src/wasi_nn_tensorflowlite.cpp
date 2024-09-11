@@ -298,10 +298,16 @@ init_execution_context(void *tflite_ctx, graph g, graph_execution_context *ctx)
         return unsupported_operation;
     }
 
-    tfl_ctx->interpreters[*ctx].interpreter = new tflite::MicroInterpreter(tfl_ctx->models[g].model,
+    /*tfl_ctx->interpreters[*ctx].interpreter = new tflite::MicroInterpreter(tfl_ctx->models[g].model,
                                                                wasi_nn_micro_op_resolver,
                                                                wasi_nn_tensor_arena[g],
-                                                               kTensorArenaSize);
+                                                               kTensorArenaSize);*/
+    /* use c-malloc/c-free instead of new/delete, because NUTTX cannot take template/operator as an symbol */
+    tfl_ctx->interpreters[*ctx].interpreter = (tflite::MicroInterpreter*)wasm_runtime_malloc(sizeof(tflite::MicroInterpreter));
+    tflite::MicroInterpreter static_interpreter(tfl_ctx->models[g].model, wasi_nn_micro_op_resolver,
+		                                    wasi_nn_tensor_arena[g], kTensorArenaSize);
+    memmove(tfl_ctx->interpreters[*ctx].interpreter, &static_interpreter, sizeof(tflite::MicroInterpreter));
+
 #else
     // Build the interpreter with the InterpreterBuilder.
     tflite::ops::builtin::BuiltinOpResolver resolver;
@@ -537,7 +543,13 @@ get_output(void *tflite_ctx, graph_execution_context ctx, uint32_t index,
 __attribute__((visibility("default"))) wasi_nn_error
 init_backend(void **tflite_ctx)
 {
+#if WASM_ENABLE_TFLITE_MICRO != 0
+    TFLiteContext *tfl_ctx = (TFLiteContext *)wasm_runtime_malloc(sizeof(TFLiteContext));
+    TFLiteContext static_ctx;
+    memmove(tfl_ctx, &static_ctx, sizeof(TFLiteContext));
+#else
     TFLiteContext *tfl_ctx = new TFLiteContext();
+#endif
     if (tfl_ctx == NULL) {
         NN_ERR_PRINTF("Error when allocating memory for tensorflowlite.");
         return runtime_error;
@@ -617,7 +629,7 @@ deinit_backend(void *tflite_ctx)
 #if WASM_ENABLE_TFLITE_MICRO != 0
         if (tfl_ctx->interpreters[i].interpreter)
             tfl_ctx->interpreters[i].interpreter->Reset();
-        delete tfl_ctx->interpreters[i].interpreter;
+        wasm_runtime_free(tfl_ctx->interpreters[i].interpreter);
         tfl_ctx->interpreters[i].interpreter = NULL;
 #else
         tfl_ctx->interpreters[i].interpreter.reset();
@@ -633,7 +645,11 @@ deinit_backend(void *tflite_ctx)
 #endif
 
     os_mutex_destroy(&tfl_ctx->g_lock);
+#if WASM_ENABLE_TFLITE_MICRO != 0
+    wasm_runtime_free(tfl_ctx);
+#else
     delete tfl_ctx;
+#endif
     NN_DBG_PRINTF("Memory free'd.");
     return success;
 }
