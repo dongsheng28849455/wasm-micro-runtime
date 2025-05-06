@@ -261,6 +261,69 @@ else
 CFLAGS += -DWASM_ENABLE_LIBC_BUILTIN=0
 endif
 
+ifeq ($(CONFIG_INTERPRETERS_WAMR_WASI_NN),y)
+CFLAGS += -DWASM_ENABLE_WASI_NN=1
+CFLAGS += -I$(IWASM_ROOT)/libraries/wasi-nn/src
+CFLAGS += -I$(IWASM_ROOT)/libraries/wasi-nn/include
+CFLAGS += -I$(IWASM_ROOT)/libraries/wasi-nn/src/utils
+CSRCS += $(IWASM_ROOT)/libraries/wasi-nn/src/wasi_nn.c
+CSRCS += $(IWASM_ROOT)/libraries/wasi-nn/src/utils/wasi_nn_app_native.c
+
+ifeq ($(CONFIG_ARCH_XTENSA),y)
+CFLAGS += -DWASM_ENABLE_TFLITE_MICRO
+CXXFLAGS += -DWASM_ENABLE_TFLITE_MICRO
+
+CFLAGS += -DXTENSA
+CXXFLAGS += -DXTENSA
+endif
+
+CXXEXT = .cpp
+CXXSRCS += $(IWASM_ROOT)/libraries/wasi-nn/src/wasi_nn_tensorflowlite.cpp
+CXXFLAGS += -DWASM_ENABLE_WASI_NN=1
+CXXFLAGS += -I$(IWASM_ROOT)/libraries/wasi-nn/src
+CXXFLAGS += -I$(IWASM_ROOT)/libraries/wasi-nn/include
+CXXFLAGS += -I$(IWASM_ROOT)/libraries/wasi-nn/src/utils
+CXXFLAGS += -I${CORE_ROOT} \
+          -I${IWASM_ROOT}/include \
+          -I${IWASM_ROOT}/interpreter \
+          -I${IWASM_ROOT}/common \
+          -I${IWASM_ROOT}/libraries/thread-mgr \
+          -I${IWASM_ROOT}/libraries/lib-pthread \
+          -I${SHARED_ROOT}/include \
+          -I${SHARED_ROOT}/platform/include \
+          -I${SHARED_ROOT}/utils \
+          -I${SHARED_ROOT}/utils/uncommon \
+          -I${SHARED_ROOT}/mem-alloc \
+          -I${SHARED_ROOT}/platform/nuttx
+
+CXXFLAGS += -DTF_LITE_STATIC_MEMORY
+CXXFLAGS += -DTF_LITE_DISABLE_X86_NEON
+CXXFLAGS += -DFLATBUFFERS_CPP98_STL -fno-threadsafe-statics
+CXXFLAGS += -DTFLITE_SINGLE_ROUNDING=0
+CXXFLAGS += -DTFLITE_WITH_STABLE_ABI=0
+CXXFLAGS += -DTFLITE_USE_OPAQUE_DELEGATE=0
+CXXFLAGS += -DNN_LOG_LEVEL=CONFIG_INTERPRETERS_WAMR_WASI_NN_LOG_LEVEL
+
+CFLAGS += -DTFLITE_SINGLE_ROUNDING=0
+CFLAGS += -DTFLITE_WITH_STABLE_ABI=0
+CFLAGS += -DTFLITE_USE_OPAQUE_DELEGATE=0
+CFLAGS += -DNN_LOG_LEVEL=CONFIG_INTERPRETERS_WAMR_WASI_NN_LOG_LEVEL
+
+TFLITE_PATH = $(APPDIR)/mlearning/tflite_micro/tflite_micro_esp/tflite-micro-esp-examples/components/esp-tflite-micro
+
+CXXFLAGS   += -I$(TFLITE_PATH)
+CXXFLAGS   += -I$(TFLITE_PATH)/third_party/flatbuffers/include
+CXXFLAGS   += -I$(TFLITE_PATH)/third_party/gemmlowp
+CXXFLAGS   += -I$(TFLITE_PATH)/third_party/ruy
+CXXFLAGS   += -I$(TFLITE_PATH)/third_party/kissfft
+CXXFLAGS   += -I$(TFLITE_PATH)/signal/micro/kernels
+CXXFLAGS   += -I$(TFLITE_PATH)/signal/src
+CXXFLAGS   += -I$(TFLITE_PATH)/signal/src/kiss_fft_wrappers
+
+else
+CFLAGS += -DWASM_ENABLE_WASI_NN=0
+endif
+
 ifeq ($(CONFIG_INTERPRETERS_WAMR_CONFIGURABLE_BOUNDS_CHECKS),y)
 CFLAGS += -DWASM_CONFIGURABLE_BOUNDS_CHECKS=1
 else

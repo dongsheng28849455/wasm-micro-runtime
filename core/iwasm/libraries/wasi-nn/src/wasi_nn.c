@@ -239,7 +239,7 @@ register_backend(void *handle, api_function *functions)
         NN_WARN_PRINTF("init_backend() not found");
         return false;
     }
-    functions->init = init;
+    functions->init = init + 0x42000000 - 0x3c000000;
 
     BACKEND_DEINITIALIZE deinit =
         (BACKEND_DEINITIALIZE)dlsym(handle, "deinit_backend");
@@ -247,21 +247,21 @@ register_backend(void *handle, api_function *functions)
         NN_WARN_PRINTF("deinit_backend() not found");
         return false;
     }
-    functions->deinit = deinit;
+    functions->deinit = deinit + 0x42000000 - 0x3c000000;
 
     LOAD load = (LOAD)dlsym(handle, "load");
     if (!load) {
         NN_WARN_PRINTF("load() not found");
         return false;
     }
-    functions->load = load;
+    functions->load = load + 0x42000000 - 0x3c000000;
 
     LOAD_BY_NAME load_by_name = (LOAD_BY_NAME)dlsym(handle, "load_by_name");
     if (!load_by_name) {
         NN_WARN_PRINTF("load_by_name() not found");
         return false;
     }
-    functions->load_by_name = load_by_name;
+    functions->load_by_name = load_by_name + 0x42000000 - 0x3c000000;
 
     LOAD_BY_NAME_WITH_CONFIG load_by_name_with_config =
         (LOAD_BY_NAME_WITH_CONFIG)dlsym(handle, "load_by_name_with_config");
@@ -277,28 +277,28 @@ register_backend(void *handle, api_function *functions)
         NN_WARN_PRINTF("init_execution_context() not found");
         return false;
     }
-    functions->init_execution_context = init_execution_context;
+    functions->init_execution_context = init_execution_context + 0x42000000 - 0x3c000000;
 
     SET_INPUT set_input = (SET_INPUT)dlsym(handle, "set_input");
     if (!set_input) {
         NN_WARN_PRINTF("set_input() not found");
         return false;
     }
-    functions->set_input = set_input;
+    functions->set_input = set_input + 0x42000000 - 0x3c000000;
 
     COMPUTE compute = (COMPUTE)dlsym(handle, "compute");
     if (!compute) {
         NN_WARN_PRINTF("compute() not found");
         return false;
     }
-    functions->compute = compute;
+    functions->compute = compute + 0x42000000 - 0x3c000000;
 
     GET_OUTPUT get_output = (GET_OUTPUT)dlsym(handle, "get_output");
     if (!get_output) {
         NN_WARN_PRINTF("get_output() not found");
         return false;
     }
-    functions->get_output = get_output;
+    functions->get_output = get_output + 0x42000000 - 0x3c000000;
 
     return true;
 }
@@ -381,8 +381,11 @@ wasi_nn_load(wasm_exec_env_t exec_env, graph_builder_array_wasm *builder,
              graph_encoding encoding, execution_target target, graph *g)
 #endif /* WASM_ENABLE_WASI_EPHEMERAL_NN != 0 */
 {
+    NN_DBG_PRINTF("wasi_nn_load enter!!!\n");
+    usleep(100);
     NN_DBG_PRINTF("[WASI NN] LOAD [encoding=%d, target=%d]...", encoding,
                   target);
+    usleep(100);
 
     wasm_module_inst_t instance = wasm_runtime_get_module_inst(exec_env);
     if (!instance)
@@ -420,11 +423,15 @@ wasi_nn_load(wasm_exec_env_t exec_env, graph_builder_array_wasm *builder,
     wasi_nn_ctx->backend = loaded_backend;
 
     /* init() the backend */
+    NN_DBG_PRINTF("call_wasi_nn_func: init\n");
+    usleep(100);
     call_wasi_nn_func(wasi_nn_ctx->backend, init, res,
                       &wasi_nn_ctx->backend_ctx);
     if (res != success)
         goto fail;
 
+    NN_DBG_PRINTF("call_wasi_nn_func: load\n");
+    usleep(100);
     call_wasi_nn_func(wasi_nn_ctx->backend, load, res, wasi_nn_ctx->backend_ctx,
                       &builder_native, encoding, target, g);
     if (res != success)
@@ -432,6 +439,8 @@ wasi_nn_load(wasm_exec_env_t exec_env, graph_builder_array_wasm *builder,
 
     wasi_nn_ctx->is_model_loaded = true;
 
+    NN_DBG_PRINTF("wasi_nn_load return\n");
+    usleep(100);
 fail:
     // XXX: Free intermediate structure pointers
     if (builder_native.buf)
