@@ -23,6 +23,13 @@ add_compile_definitions(
 if(WAMR_BUILD_WASI_NN_TFLITE EQUAL 1)
   find_package(tensorflow_lite REQUIRED)
   enable_language(CXX)
+find_package(OpenCV REQUIRED)
+
+if(NOT OpenCV_FOUND)
+  message(FATAL_ERROR "OpenCV not found!")
+else()
+  message(STATUS "OpenCV found: ${OpenCV_VERSION}")
+endif()
 
   add_library(
     wasi_nn_tflite
@@ -34,6 +41,7 @@ if(WAMR_BUILD_WASI_NN_TFLITE EQUAL 1)
     wasi_nn_tflite
     PUBLIC
       ${tensorflow_lite_SOURCE_DIR}
+      ${OpenCV_INCLUDE_DIRS}
   )
 
   target_link_libraries(
@@ -41,6 +49,8 @@ if(WAMR_BUILD_WASI_NN_TFLITE EQUAL 1)
     PUBLIC
       vmlib
       tensorflow-lite
+      ${OpenCV_LIBS}
+
   )
 
   install(TARGETS wasi_nn_tflite DESTINATION lib)
@@ -108,4 +118,41 @@ if(WAMR_BUILD_WASI_NN_LLAMACPP EQUAL 1)
   )
 
   install(TARGETS wasi_nn_llamacpp DESTINATION lib)
+endif()
+
+# - onnx
+if(WAMR_BUILD_WASI_NN_ONNX EQUAL 1)
+  find_package(onnx REQUIRED)
+  enable_language(CXX)
+
+  find_package(OpenCV REQUIRED)
+  if(NOT OpenCV_FOUND)
+    message(FATAL_ERROR "OpenCV not found!")
+  else()
+    message(STATUS "OpenCV found: ${OpenCV_VERSION}")
+  endif()
+
+  add_library(
+    wasi_nn_onnx
+    SHARED
+      ${WASI_NN_ROOT}/src/wasi_nn_onnx.cpp
+  )
+
+  target_include_directories(
+    wasi_nn_onnx
+    PUBLIC
+      ${onnxruntime_INCLUDE_DIR}/onnx
+      ${onnxruntime_INCLUDE_DIR}
+      ${OpenCV_INCLUDE_DIRS}
+  )
+
+  target_link_libraries(
+    wasi_nn_onnx
+    PUBLIC
+      vmlib
+      onnx
+      ${OpenCV_LIBS}
+  )
+
+  install(TARGETS wasi_nn_onnx DESTINATION lib)
 endif()
